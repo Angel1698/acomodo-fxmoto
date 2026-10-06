@@ -75,11 +75,17 @@ input[type=search],select,textarea{width:100%;font-size:16px;padding:11px;border
 .mfoto{width:64px;height:64px;flex:0 0 64px;border-radius:8px;background:#eef1f5;object-fit:contain;display:flex;align-items:center;justify-content:center;color:#8a93a3;font-size:10px}
 .scanrow{display:flex;gap:8px}.scanrow input{flex:1}
 .b-scan{border:0;border-radius:10px;background:#FF0029;color:#fff;font-weight:bold;padding:0 14px;font-size:15px;white-space:nowrap}
-.scanov{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column}
-.scanov video{flex:1;width:100%;object-fit:cover}
+.scanov{position:fixed;inset:0;height:100vh;height:100dvh;background:#000;z-index:20;display:none;flex-direction:column}
+.scanov .vbox{flex:1;min-height:0;position:relative;overflow:hidden}
+.scanov video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scanov .est{color:#ffd27a;text-align:center;font-size:14px;min-height:20px;padding:6px 10px 0}
+.scanov .marco i{position:absolute;left:4%;right:4%;top:50%;height:2px;background:#ff2b2b;box-shadow:0 0 8px #ff2b2b;display:none}
+.scanov .marco.on i{display:block;animation:barre 1.6s ease-in-out infinite}
+.scanov .marco.ok{border-color:#22c55e!important;background:rgba(34,197,94,.25)}
+@keyframes barre{0%,100%{top:8%}50%{top:90%}}
 .scanov .msg{color:#fff;text-align:center;padding:10px;font-size:15px}
-.scanov .bb{display:flex;gap:8px;padding:10px}.scanov .bb button{flex:1;border:0;border-radius:10px;padding:14px;font-size:15px;font-weight:bold}
-.scanov .marco{position:absolute;left:10%;right:10%;top:35%;height:22%;border:3px solid #f0a020;border-radius:12px;pointer-events:none}
+.scanov .bb{display:flex;gap:8px;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.scanov .bb button{flex:1;border:0;border-radius:10px;padding:14px;font-size:15px;font-weight:bold}
+.scanov .marco{position:absolute;left:8%;right:8%;top:30%;height:40%;border:3px solid #f0a020;border-radius:12px;pointer-events:none}
 .posbox{background:#e8f0fe;border:2px solid #111111;border-radius:12px;padding:12px;margin:10px 0}
 .t-sc{background:#dbe7ff;color:#111111}
 
@@ -222,7 +228,7 @@ input[type=search],select,textarea{width:100%;font-size:16px;padding:11px;border
 </main>
 <div class="toast" id="toast"></div>
 <div class="modal" id="modal"><div class="box" id="mbox"></div></div>
-<div class="scanov" id="scanov"><div class="msg" id="scanmsg">Apunta al código de barras o QR</div><video id="scanvid" playsinline muted></video><div class="marco"></div><div class="bb"><button onclick="scanFoto()" style="background:#FF0029;color:#fff">Tomar foto</button><button onclick="cerrarScan()">Cancelar</button></div></div>
+<div class="scanov" id="scanov"><div class="msg" id="scanmsg">Apunta al código de barras o QR</div><div class="vbox"><video id="scanvid" playsinline muted autoplay></video><div class="marco"><i></i></div></div><div class="est" id="scanest"></div><div class="bb"><button onclick="scanFoto()" style="background:#FF0029;color:#fff">Tomar foto</button><button id="btorch" onclick="linterna()" style="display:none;background:#f0a020">Linterna</button><button onclick="cerrarScan()">Cancelar</button></div></div>
 <div class="regov" id="regov"><div class="regbox"><div class="reghd">REGISTRAR PIEZA NUEVA</div><div class="regbd">
 <div class="ayu" style="font-size:13px;color:#333">Esta pieza no está en la lista de acomodo ni en la lista de precios (puede ser descontinuada). Llena los datos <b>tal como vienen en la etiqueta</b>.</div>
 <label>Código <i>*</i></label><input type="text" id="rgCod" autocomplete="off">
@@ -413,21 +419,73 @@ function lector(){if(!window.ZXing)return null;var H=new Map();var F=ZXing.Barco
   H.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.QR_CODE,F.EAN_13,F.EAN_8,F.CODE_39,F.UPC_A,F.UPC_E,F.ITF,F.CODABAR,F.DATA_MATRIX]);H.set(ZXing.DecodeHintType.TRY_HARDER,true);
   return new ZXing.BrowserMultiFormatReader(H,300)}
 function enMarco(){try{return window.self!==window.top}catch(e){return true}}
+var LIVE={st:null,t:0,busy:false,n:0,bd:null,last:'',lastN:0,torch:false,full:false};
 function escanear(modo,cod){SCAN.modo=modo;SCAN.cod=cod||'';
   var ov=document.getElementById('scanov'),msg=document.getElementById('scanmsg'),vid=document.getElementById('scanvid'),mc=ov.querySelector('.marco');
   var que=modo==='confirmar'?'la etiqueta de la POSICIÓN donde pusiste '+cod:'el código de barras o QR de la pieza o de la posición';
-  ov.style.display='flex';SCAN.activo=true;
+  ov.style.display='flex';SCAN.activo=true;SCAN.que=que;document.getElementById('scanest').textContent='';document.getElementById('btorch').style.display='none';
   if(enMarco()||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     vid.style.display='none';mc.style.display='none';
     msg.innerHTML='Toma una foto de '+que+'.<br><br>Que el código se vea completo, derecho y con buena luz.';
     document.getElementById('scanfile').click();return}
-  vid.style.display='';mc.style.display='';msg.textContent='Apunta a '+que;
-  if(!window.ZXing){msg.textContent='No cargó el lector en vivo. Usa "Tomar foto".';return}
-  SCAN.reader=lector();var cons={video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}};
-  SCAN.reader.decodeFromConstraints(cons,'scanvid',function(res){if(res&&SCAN.activo){var tx=res.getText(),up=tx.toUpperCase().trim();if(SCAN.modo!=='confirmar'&&!buscarCodigo(tx)&&!esPos(up)&&tokens(up).some(esLote)){msg.textContent='Ese es el QR de lote de ALESSIA. Apunta al código de barras de la pieza.';return}cerrarScan();resultado(tx)}})
-    .catch(function(){vid.style.display='none';mc.style.display='none';msg.innerHTML='No se pudo abrir la cámara en vivo.<br><br><b>Toca "Tomar foto"</b>: se abre la cámara del teléfono y el código se lee de la foto.'});}
-function cerrarScan(){SCAN.activo=false;try{SCAN.reader&&SCAN.reader.reset()}catch(e){}document.getElementById('scanov').style.display='none'}
-function scanFoto(){try{SCAN.reader&&SCAN.reader.reset()}catch(e){}document.getElementById('scanfile').click()}
+  vid.style.display='';mc.style.display='';msg.textContent='Apunta a '+que;mc.className='marco on';
+  LIVE.n=0;LIVE.last='';LIVE.lastN=0;
+  prepDetector().then(function(){
+    return navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}})})
+  .then(function(st){if(!SCAN.activo){st.getTracks().forEach(function(t){t.stop()});return}
+    LIVE.st=st;vid.srcObject=st;vid.setAttribute('playsinline','');vid.muted=true;
+    var tr=st.getVideoTracks()[0];try{var cp=tr.getCapabilities?tr.getCapabilities():{};
+      if(cp.focusMode&&cp.focusMode.indexOf('continuous')>=0)tr.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(function(){});
+      if(cp.torch)document.getElementById('btorch').style.display=''}catch(e){}
+    return vid.play().then(function(){loopLive()})})
+  .catch(function(e){vid.style.display='none';mc.style.display='none';
+    msg.innerHTML='No se pudo abrir la cámara en vivo'+(e&&e.name==='NotAllowedError'?' porque no se dio permiso. Revisa el permiso de cámara de esta página en el navegador.':'.')+'<br><br><b>Toca "Tomar foto"</b>: se abre la cámara del teléfono y el código se lee de la foto.'})}
+var FMT_BD=['code_128','code_39','code_93','qr_code','ean_13','ean_8','upc_a','upc_e','itf','data_matrix','codabar'];
+var FMT_WA=['Code128','Code39','Code93','QRCode','EAN-13','EAN-8','UPC-A','UPC-E','ITF','DataMatrix','Codabar'];
+function prepDetector(){if(LIVE.bd!==null)return Promise.resolve();
+  if('BarcodeDetector' in window&&BarcodeDetector.getSupportedFormats){return BarcodeDetector.getSupportedFormats().then(function(f){
+      var ok=FMT_BD.filter(function(x){return f.indexOf(x)>=0});LIVE.bd=ok.indexOf('code_128')>=0?new BarcodeDetector({formats:ok}):false}).catch(function(){LIVE.bd=false})}
+  LIVE.bd=false;try{window.ZXingWASM&&ZXingWASM.prepareZXingModule&&ZXingWASM.prepareZXingModule({fireImmediately:true})}catch(e){}return Promise.resolve()}
+function detectar(c){
+  if(LIVE.bd)return LIVE.bd.detect(c).then(function(r){return r.map(function(x){return x.rawValue})});
+  if(window.ZXingWASM){var d=c.getContext('2d').getImageData(0,0,c.width,c.height);
+    return ZXingWASM.readBarcodes(d,{tryHarder:true,maxNumberOfSymbols:4,formats:FMT_WA}).then(function(r){return r.filter(function(x){return x.isValid}).map(function(x){return x.text})})}
+  if(window.ZXing){return new Promise(function(ok){try{var rd=new ZXing.MultiFormatReader();var H=new Map();H.set(ZXing.DecodeHintType.TRY_HARDER,true);rd.setHints(H);
+    var r=rd.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c))));ok([r.getText()])}catch(e){ok([])}})}
+  return Promise.resolve([])}
+var LCV=null;
+function cuadro(vid,full){var vw=vid.videoWidth,vh=vid.videoHeight;if(!vw)return null;
+  var sx=0,sy=0,sw=vw,sh=vh;if(!full){sw=Math.round(vw*0.9);sh=Math.round(vh*(vw>vh?0.6:0.4));sx=Math.round((vw-sw)/2);sy=Math.round((vh-sh)/2)}
+  var k=Math.min(1,(full?1280:1100)/Math.max(sw,sh));LCV=LCV||document.createElement('canvas');LCV.width=Math.round(sw*k);LCV.height=Math.round(sh*k);
+  LCV.getContext('2d',{willReadFrequently:true}).drawImage(vid,sx,sy,sw,sh,0,0,LCV.width,LCV.height);return LCV}
+function loopLive(){if(!SCAN.activo||!LIVE.st)return;var vid=document.getElementById('scanvid');
+  if(LIVE.busy||vid.readyState<2){LIVE.t=setTimeout(loopLive,80);return}
+  LIVE.busy=true;LIVE.full=!LIVE.full;var c=cuadro(vid,LIVE.full);if(!c){LIVE.busy=false;LIVE.t=setTimeout(loopLive,120);return}
+  detectar(c).then(function(r){LIVE.busy=false;LIVE.n++;
+    var est=document.getElementById('scanest');est.textContent='Buscando código'+'...'.slice(0,LIVE.n%4);
+    if(r&&r.length&&elegirLive(r))return;LIVE.t=setTimeout(loopLive,LIVE.bd?40:60)},
+   function(){LIVE.busy=false;LIVE.t=setTimeout(loopLive,150)})}
+function elegirLive(r){var msg=document.getElementById('scanmsg'),est=document.getElementById('scanest');
+  var bueno=r.filter(function(t){return esPos(String(t).toUpperCase().trim())||buscarCodigo(t)});
+  if(SCAN.modo==='confirmar'){var p=r.filter(function(t){return esPos(String(t).toUpperCase().trim())});
+    if(p.length){aceptarLive(p[0]);return true}
+    est.textContent='Leí "'+String(r[0]).slice(0,30)+'": no es etiqueta de posición. Apunta a la etiqueta de la repisa.';vibrar(60);return false}
+  if(bueno.length){aceptarLive(bueno[0]);return true}
+  var t=r.filter(function(x){return !tokens(String(x).toUpperCase()).some(esLote)});
+  if(!t.length){est.textContent='Ese es el QR de lote de ALESSIA. Apunta al código de barras de la pieza.';return false}
+  // código que no está en la lista: se acepta si se lee igual 2 veces seguidas
+  if(t[0]===LIVE.last){LIVE.lastN++}else{LIVE.last=t[0];LIVE.lastN=1}
+  est.textContent='Leyendo: '+String(t[0]).slice(0,30);
+  if(LIVE.lastN>=2){aceptarLive(t[0]);return true}return false}
+function aceptarLive(t){vibrar(120);var mc=document.querySelector('#scanov .marco');mc.className='marco ok';
+  setTimeout(function(){cerrarScan();resultado(t)},250)}
+function pararLive(){clearTimeout(LIVE.t);if(LIVE.st){LIVE.st.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}LIVE.st=null;LIVE.torch=false;
+  var v=document.getElementById('scanvid');try{v.pause();v.srcObject=null}catch(e){}}
+function linterna(){if(!LIVE.st)return;var tr=LIVE.st.getVideoTracks()[0];LIVE.torch=!LIVE.torch;
+  tr.applyConstraints({advanced:[{torch:LIVE.torch}]}).catch(function(){});document.getElementById('btorch').textContent=LIVE.torch?'Apagar luz':'Linterna'}
+function cerrarScan(){SCAN.activo=false;pararLive();document.getElementById('scanov').style.display='none'}
+function scanFoto(){pararLive();var vid=document.getElementById('scanvid'),mc=document.querySelector('#scanov .marco');vid.style.display='none';mc.style.display='none';
+  document.getElementById('scanest').textContent='';document.getElementById('scanmsg').innerHTML='Toma una foto de '+(SCAN.que||'el código')+'.';document.getElementById('scanfile').click()}
 function escalas(img){var out=[],W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
   [1600,1000].forEach(function(m){var k=Math.min(2.5,m/Math.max(W,H)),c=document.createElement('canvas');c.width=Math.round(W*k);c.height=Math.round(H*k);c.getContext('2d',{willReadFrequently:true}).drawImage(img,0,0,c.width,c.height);out.push(c)});
   var c=document.createElement('canvas'),cw=Math.round(W*0.6),ch=Math.round(H*0.6),k2=Math.min(1,1400/Math.max(cw,ch));c.width=Math.round(cw*k2);c.height=Math.round(ch*k2);
