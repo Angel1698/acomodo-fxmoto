@@ -471,8 +471,9 @@ function elegirLive(r){var msg=document.getElementById('scanmsg'),est=document.g
     if(p.length){aceptarLive(p[0]);return true}
     est.textContent='Leí "'+String(r[0]).slice(0,30)+'": no es etiqueta de posición. Apunta a la etiqueta de la repisa.';vibrar(60);return false}
   if(bueno.length){aceptarLive(bueno[0]);return true}
-  var t=r.filter(function(x){return !tokens(String(x).toUpperCase()).some(esLote)});
-  if(!t.length){est.textContent='Ese es el QR de lote de ALESSIA. Apunta al código de barras de la pieza.';return false}
+  // el QR de ALESSIA trae lote + código + descripción: sirve si además del lote trae un código
+  var t=r.filter(function(x){return tokens(String(x).toUpperCase()).some(function(k){return !esLote(k)&&/[0-9]/.test(k)&&k.length>=4})});
+  if(!t.length){est.textContent='Ese código solo trae el lote. Apunta al código de barras de la pieza.';return false}
   // código que no está en la lista: se acepta si se lee igual 2 veces seguidas
   if(t[0]===LIVE.last){LIVE.lastN++}else{LIVE.last=t[0];LIVE.lastN=1}
   est.textContent='Leyendo: '+String(t[0]).slice(0,30);
