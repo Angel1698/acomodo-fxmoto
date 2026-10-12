@@ -145,7 +145,7 @@ input[type=search],select,textarea{width:100%;font-size:16px;padding:11px;border
   <div id="v-p" style="display:none">
     <div class="row"><select id="sb" onchange="llenarPasillos()"><option value="C">Bodega C (Cuernavaca)</option></select>
     <select id="sp" onchange="verPasillo()"></select></div>
-    <label class="muted" style="display:block;margin:8px 0"><input type="checkbox" id="pend" onchange="verPasillo()"> Solo pendientes</label>
+    <div class="row" style="margin:8px 0"><select id="fe" onchange="verPasillo()"><option value="">Mostrar: todos</option><option value="pend">Solo pendientes</option><option value="ok">Solo acomodados</option><option value="nc">Solo &quot;no cupo&quot;</option><option value="da">Solo dañados</option></select><select id="fp" onchange="verPasillo()"><option value="">Persona: todas</option></select></div>
     <div id="lp"></div>
   </div>
   <div id="v-c" style="display:none">
@@ -311,14 +311,20 @@ function buscar(){
   hits=ex.concat(hits);out.innerHTML=hits.length?hits.map(tarjeta).join(''):'<p class="muted">No está en la lista de acomodo.</p><button class="btn-cq" onclick="buscarEnLP()">Buscar en lista de precios y rescatar</button>';}
 function llenarPasillos(){var b=document.getElementById('sb').value,s=document.getElementById('sp'),ps={};
   P.forEach(function(r){var x=parseU(r[4]);if(x&&x.b===b)ps[x.p]=1});
-  s.innerHTML=Object.keys(ps).map(Number).sort(function(a,b){return a-b}).map(function(p){return '<option value="'+p+'">'+(b==='G'&&p===11?'Tapanco (pasillo 11)':'Pasillo '+p)+'</option>'}).join('');verPasillo();}
-function verPasillo(){var b=document.getElementById('sb').value,p=+document.getElementById('sp').value,pend=document.getElementById('pend').checked;
-  var L=P.filter(function(r){var x=parseU(r[4]);return x&&x.b===b&&x.p===p}).sort(function(a,c){return kpos(a[4])<kpos(c[4])?-1:1});
+  s.innerHTML='<option value="0">Todos los pasillos</option>'+Object.keys(ps).map(Number).sort(function(a,b){return a-b}).map(function(p){return '<option value="'+p+'">'+(b==='G'&&p===11?'Tapanco (pasillo 11)':'Pasillo '+p)+'</option>'}).join('');verPasillo();}
+function llenarPersonas(){var s=document.getElementById('fp');if(!s)return;var v=s.value,ns={};Object.keys(MK).forEach(function(k){if(MK[k].estado==='ACOMODADO'&&MK[k].persona)ns[MK[k].persona]=(ns[MK[k].persona]||0)+1});
+  s.innerHTML='<option value="">Persona: todas</option>'+Object.keys(ns).sort().map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+' ('+ns[n]+')</option>'}).join('');s.value=v;}
+function verPersona(n){tab('p');document.getElementById('sp').value='0';document.getElementById('fe').value='ok';llenarPersonas();document.getElementById('fp').value=n;verPasillo();window.scrollTo(0,0)}
+function verPasillo(){llenarPersonas();var b=document.getElementById('sb').value,p=+document.getElementById('sp').value,fe=document.getElementById('fe').value,fp=document.getElementById('fp').value;
+  var L=P.filter(function(r){var x=parseU(r[4]);return x&&x.b===b&&(p===0||x.p===p)}).sort(function(a,c){return kpos(a[4])<kpos(c[4])?-1:1});
   var hechos=L.filter(function(r){return (MK[r[0].toUpperCase()]||{}).estado==='ACOMODADO'}).length;
-  var h='<div class="card"><b>'+hechos+' de '+L.length+' acomodados</b><div class="bar"><i style="width:'+(L.length?Math.round(hechos*100/L.length):0)+'%"></i></div></div><div class="card">';
-  L.forEach(function(r){var m=MK[r[0].toUpperCase()]||{};if(pend&&m.estado==='ACOMODADO')return;
-    h+='<div class="mini" onclick="abrir(\''+esc(r[0])+'\')">'+(r[8]?'<img class="mfoto" loading="lazy" src="'+esc(r[8])+'">':'<div class="mfoto">Sin foto</div>')+'<div style="flex:1;min-width:0;margin-left:10px"><div class="c">'+esc(r[0])+'</div><div class="u" style="font-weight:bold;color:#8a4b00">'+esc(r[4])+'</div><div class="u">'+esc(String(r[1]).slice(0,60))+'</div></div><div style="font-size:18px">'+(m.estado==='ACOMODADO'?'✅':'⬜')+(m.nocupo?' 📦':'')+(m.danado?' ⚠️':'')+'</div></div>'});
-  document.getElementById('lp').innerHTML=h+'</div>';}
+  var h='<div class="card"><b>'+hechos+' de '+L.length+' acomodados</b><div class="bar"><i style="width:'+(L.length?Math.round(hechos*100/L.length):0)+'%"></i></div><div class="muted" id="nfil" style="margin-top:6px"></div></div><div class="card">',nv=0;
+  L.forEach(function(r){var m=MK[r[0].toUpperCase()]||{},ok=m.estado==='ACOMODADO';
+    if(fe==='pend'&&ok)return;if(fe==='ok'&&!ok)return;if(fe==='nc'&&!m.nocupo)return;if(fe==='da'&&!m.danado)return;
+    if(fp&&!(ok&&m.persona===fp))return;if(nv++>=600)return;
+    h+='<div class="mini" onclick="abrir(\''+esc(r[0])+'\')">'+(r[8]?'<img class="mfoto" loading="lazy" src="'+esc(r[8])+'">':'<div class="mfoto">Sin foto</div>')+'<div style="flex:1;min-width:0;margin-left:10px"><div class="c">'+esc(r[0])+'</div><div class="u" style="font-weight:bold;color:#8a4b00">'+esc(r[4])+'</div><div class="u">'+esc(String(r[1]).slice(0,60))+'</div>'+(ok?'<div class="u" style="color:#1a7f37">Acomodado por <b>'+esc(m.persona||'Sin nombre')+'</b>'+(m.fecha?' · '+esc(m.fecha):'')+'</div>':'')+'</div><div style="font-size:18px">'+(m.estado==='ACOMODADO'?'✅':'⬜')+(m.nocupo?' 📦':'')+(m.danado?' ⚠️':'')+'</div></div>'});
+  document.getElementById('lp').innerHTML=h+(nv>600?'<p class="muted">Se muestran 600 de '+nv+'. Elige un pasillo o una persona para ver menos.</p>':'')+(nv?'':'<p class="muted">Nada con este filtro.</p>')+'</div>';
+  document.getElementById('nfil').textContent=(fe||fp||p===0)?'Con este filtro: '+nv+' piezas':'';}
 function abrir(cod){document.getElementById('q').value=cod;tab('b');buscar();window.scrollTo(0,0)}
 function avance(){var by={},per={},tot=0,ok=0,nc=0,da=0;
   P.forEach(function(r){var x=parseU(r[4]);if(!x)return;var k=x.b+'-'+(x.p<10?'0':'')+x.p;by[k]=by[k]||[0,0];by[k][1]++;tot++;
@@ -327,7 +333,7 @@ function avance(){var by={},per={},tot=0,ok=0,nc=0,da=0;
   var h='<div class="card"><b>Total: '+ok+' de '+tot+' acomodados ('+(tot?Math.round(ok*100/tot):0)+'%)</b><div class="bar"><i style="width:'+(tot?ok*100/tot:0)+'%"></i></div><div class="muted" style="margin-top:6px">No cupo: '+nc+' · Dañados: '+da+'</div></div>'+(su.length?'<div class="card"><b>Piezas sin ubicación reportadas: '+su.length+'</b>'+su.map(function(k){return '<div class="mini"><span><b>'+esc(k)+'</b> '+esc(MK[k].desc||'')+'</span><span class="muted">'+esc(MK[k].persona||'')+'</span></div>'}).join('')+'</div>':'')+'<div class="card"><b>Por pasillo</b>';
   Object.keys(by).sort().forEach(function(k){var v=by[k],b=k[0],p=+k.slice(2);h+='<div style="margin-top:8px"><div class="muted">'+(b==='G'&&p===11?'G · Tapanco':'Bodega '+b+' · Pasillo '+p)+': '+v[0]+' de '+v[1]+'</div><div class="bar"><i style="width:'+Math.round(v[0]*100/v[1])+'%"></i></div></div>'});
   h+='</div><div class="card"><b>Por persona</b>';
-  Object.keys(per).sort(function(a,b){return per[b]-per[a]}).forEach(function(n){h+='<div class="mini"><span>'+esc(n||'Sin nombre')+'</span><b>'+per[n]+'</b></div>'});
+  Object.keys(per).sort(function(a,b){return per[b]-per[a]}).forEach(function(n){h+='<div class="mini" style="cursor:pointer" onclick="verPersona(\''+esc(n).replace(/'/g,"\\'")+'\')"><span>'+esc(n||'Sin nombre')+' <span class="muted">· ver sus piezas</span></span><b>'+per[n]+'</b></div>'});
   document.getElementById('av').innerHTML=h+'</div>';}
 function refrescar(){var t=document.querySelector('.tabs .on').id.slice(3);if(t==='b')buscar();if(t==='p')verPasillo();if(t==='a')avance();if(t==='c')verCroquis()}
 function enviar(cod,estado,obs,foto){
