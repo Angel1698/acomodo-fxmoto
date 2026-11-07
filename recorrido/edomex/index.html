@@ -88,6 +88,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;b
 
   <section id="v-r">
     <button class="btn dark w" onclick="scanIr()">Escanear etiqueta de un nivel</button>
+    <button class="btn w" onclick="verTutorial()">▶ Ver video tutorial (3 min)</button>
     <div id="pasillos"></div>
     <div id="rackwrap"></div>
     <div class="ley"><span><i style="background:#dfe5ee"></i>Sin revisar</span><span><i style="background:#9fd6ad"></i>Revisado sin problemas</span><span><i style="background:#ffc477"></i>Revisado con diferencias</span></div>
@@ -388,6 +389,7 @@ function leido(t){t=limpiarLectura(t);vibrar(60);document.getElementById('marco'
 function scanManual(){var t=document.getElementById('scanman').value;if(t.trim())leido(t)}
 function cerrarScan(){clearTimeout(SC.t);if(SC.st)SC.st.getTracks().forEach(function(t){try{t.stop()}catch(e){}});SC.st=null;document.getElementById('scanov').style.display='none'}
 
+function verTutorial(){abrirMod('<b>Cómo usar el recorrido de racks</b><video src="tutorial.mp4" controls playsinline autoplay style="width:100%;max-height:75vh;margin-top:8px;border-radius:10px;background:#000"></video><button class="btn w" onclick="var v=document.querySelector(\'#modbox video\');v&&v.pause();cerrarMod()">Cerrar</button>')}
 /* ===== Inicio ===== */
 persona=store('wms_persona')||'';document.getElementById('who').textContent=persona||'Sin nombre';
 var qb=(new URLSearchParams(location.search).get('b')||store('rec_b')||'G').toUpperCase();setB(qb==='M'?'M':'G');tab('r');cargar();enviarCola();
