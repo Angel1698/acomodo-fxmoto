@@ -296,10 +296,11 @@ function tarjeta(r){
   return '<div class="card"><div class="row">'+(foto?'<img class="foto" loading="lazy" src="'+esc(foto)+'">':'<div class="foto">Sin foto</div>')+
     '<div style="min-width:0"><div class="cod">'+esc(cod)+'</div><div class="desc">'+esc(r[1])+'</div>'+(r[2]?'<div class="desc" style="color:#8a93a3">'+esc(r[2])+'</div>':'')+tags+'</div></div>'+
     '<div class="ubic"><div class="big">'+esc(r[4])+'</div><div class="sub">'+ubicTexto(r[4])+'</div>'+u2+croquis(r[4])+'<button class="btn-cq" onclick="irCroquis(\''+esc(r[4])+'\')">Ver en croquis y rack</button></div>'+
-    '<div class="btns">'+(m.estado==='ACOMODADO'?'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Registrar otra vez (encontré más)</button><button class="b-ok done" onclick="acc(\''+esc(cod)+'\',\'ok\')">Acomodado ✓ (quitar)</button>':'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Escanear posición y acomodar</button><button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'man\')">Acomodar sin escanear</button>')+
+    '<div class="btns">'+(m.estado==='ACOMODADO'?'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Escanear posición y acomodar (ya tiene registro: se suma)</button><button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'man\')">Acomodar sin escanear</button><button class="b-ok done" onclick="acc(\''+esc(cod)+'\',\'ok\')">Quitar acomodado</button>':'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Escanear posición y acomodar</button><button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'man\')">Acomodar sin escanear</button>')+
     '<button class="b-no'+(m.nocupo?' done':'')+'" onclick="acc(\''+esc(cod)+'\',\'no\')">No cupo</button>'+
     '<button class="b-da'+(m.danado?' done':'')+'" onclick="acc(\''+esc(cod)+'\',\'da\')">Dañado + foto</button>'+
     '<button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'ob\')">Observación</button></div>'+
+    (m.regs&&m.regs.length>1?'<div class="obs"><b>'+m.regs.length+' registros de acomodo:</b>\n'+esc(m.regs.map(function(x){return x[1]+' · '+x[0]+(x[2]?' · '+x[2]:'')}).join('\n'))+'</div>':'')+
     (m.obs&&m.obs.length?'<div class="obs">'+esc(m.obs.join('\n'))+'</div>':'')+'</div>';}
 function buscar(){
   var q=norm(document.getElementById('q').value).trim(),out=document.getElementById('res');
@@ -554,7 +555,7 @@ function codigoProbable(t){var tk=tokens(String(t).toUpperCase().trim()).filter(
 function resultado(txt){var t=String(txt).trim(),u=t.toUpperCase();
   if(SCAN.modo==='confirmar'){var r=IDX[SCAN.cod.toUpperCase()];if(!r)return;
     if(!esPos(u)){vibrar([200,100,200]);alert((buscarCodigo(t)?'Escaneaste la etiqueta de la PIEZA.':'Eso no es una etiqueta de posición.')+'\n\nEscanea la etiqueta de la REPISA (la de la posición) donde pusiste '+SCAN.cod+'.');return}
-    if(u===r[4]||u===r[5]){vibrar(150);var mk0=MK[SCAN.cod.toUpperCase()]||{};if(mk0.estado==='ACOMODADO')historialReg(SCAN.cod,mk0);enviar(SCAN.cod,'ACOMODADO','ESCANEO:'+u);toast('Correcto: '+SCAN.cod+' en '+u);return}
+    if(u===r[4]||u===r[5]){vibrar(150);var mk0=MK[SCAN.cod.toUpperCase()]||{};if(mk0.estado==='ACOMODADO'&&!mk0.regs)historialReg(SCAN.cod,mk0);enviar(SCAN.cod,'ACOMODADO','ESCANEO:'+u);toast('Correcto: '+SCAN.cod+' en '+u);return}
     vibrar([300,100,300,100,300]);alert('POSICIÓN EQUIVOCADA\n\nEscaneaste: '+u+'\n'+SCAN.cod+' va en: '+r[4]+(r[5]?' (o '+r[5]+')':'')+'\n\nNo se marcó como acomodado.');return}
   document.getElementById('posres').innerHTML='';
   if(esPos(u)){var L=P.filter(function(r){return r[4]===u||r[5]===u});
