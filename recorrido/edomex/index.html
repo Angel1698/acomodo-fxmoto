@@ -313,6 +313,7 @@ function pintarNivel(){var id=NIV,x=id.split('-'),h='';guardarBorrador();
   var falta=ED.items.filter(function(i){return !i.estado||(i.estado==='OTRO'&&!i.otro)}).length;
   h+='<div class="toolbar"><div class="row2"><button class="btn ok" onclick="todoOK()"'+(falta?'':' disabled')+'>✓ Todo lo demás está en su lugar</button><button class="btn" style="flex:0 0 110px" onclick="COMPACTA=!COMPACTA;store(\'rec_compacta\',COMPACTA?\'1\':\'0\');pintar()">'+(COMPACTA?'Vista grande':'Vista compacta')+'</button></div>'+
      '<div class="muted" style="margin-top:4px">'+ED.items.length+' posiciones · faltan '+falta+'. Marca primero las que NO están bien y luego toca "Todo lo demás".</div></div>';
+  h+='<button class="btn blue w" onclick="tengoProducto()">Escanear producto que traigo en la mano</button>';
   h+='<div class="card'+(COMPACTA?' compacta':'')+'"><b>1. Revisa cada posición</b>';
   if(!ED.items.length)h+='<p class="muted">Este nivel no tiene productos asignados.</p>';
   ED.items.forEach(function(it,i){h+='<div class="pos" id="pos-'+esc(letraDe(it.ubic))+'"><div class="letra">'+letraDe(it.ubic)+'</div>'+fotoDe(it.codigo)+'<div style="flex:1;min-width:0"><div class="cod">'+esc(it.codigo)+(it.seg?' <span class="pill b">2ª ubic.</span>':'')+'</div><div class="desc">'+descDe(it.codigo)+'</div>'+
@@ -337,11 +338,29 @@ function marcaPos(i,e){var it=ED.items[i];
   if(e==='OTRO'){elegirProducto('¿Qué producto está en la posición '+letraDe(it.ubic)+'?',NIV,function(c){if(it.ext&&it.ext.length)quitarExt(i);it.estado='OTRO';it.otro=c;it.auto=false;pintar()});return}
   if(e==='OK'&&PISO[it.codigo]&&!PISO[it.codigo].quitado&&!PISO[it.codigo].full){if(!confirm(it.codigo+' está anotado en el PISO.\nTodo va junto: o todo en su posición o todo en el piso.\n¿Ya regresaste TODO a su posición? (se quita del piso)'))return;quitarPisoSin(it.codigo)}
   if(it.ext&&it.ext.length&&e!=='OK')quitarExt(i);it.estado=e;it.otro='';it.auto=false;pintar()}
-function agregarExtra(){elegirProducto('¿Qué producto encontraste en este nivel?',NIV,function(c){
+function agregarExtra(){elegirProducto('¿Qué producto encontraste en este nivel?',NIV,anotarAqui)}
+function anotarAqui(c){(function(){
   var L=letrasNivel();var sig=L[L.length-1];
   var h='<b>¿En qué posición está '+esc(c)+'?</b>'+ajeno(c)+'<div class="muted">Si está junto a otro producto, elige esa letra. Si está en un lugar sin letra, elige la nueva ('+sig+').</div><div class="chips">';
   L.forEach(function(l){h+='<button onclick="ED.extras.push({codigo:\''+jsq(c)+'\',ubic:\''+NIV+'-'+l+'\'});cerrarMod();pintar()">'+l+(l===sig?' (nueva)':'')+'</button>'});
-  h+='</div><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)})}
+  h+='</div><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)})()}
+/* ===== Producto que traen en la mano (acomodo dentro del recorrido) ===== */
+function lugaresDe(c){var r=IDX[c];if(!r)return [];var l=[String(r[4]||'').toUpperCase().trim()].concat(ubics2(r));return l.filter(function(u,i){return u&&l.indexOf(u)===i})}
+function tengoProducto(){elegirProducto('¿Qué producto traes en la mano?',NIV,function(c){
+  var us=lugaresDe(c),aqui=us.filter(function(u){return nivelDe(u)===NIV});
+  if(aqui.length){var l=letraDe(aqui[0]),k=-1;ED.items.forEach(function(it,i){if(it.codigo===c&&letraDe(it.ubic)===l)k=i});
+    if(k>=0){var it=ED.items[k];if(it.ext&&it.ext.length)quitarExt(k);it.estado='OK';it.otro='';it.auto=false;pintar();var e=document.getElementById('pos-'+l);if(e)e.scrollIntoView({behavior:'smooth',block:'center'});
+      abrirMod('<b>'+esc(c)+' va AQUÍ</b><div class="desc">'+descDe(c)+'</div><div style="font-size:22px;margin:10px 0">Posición <b>'+esc(l)+'</b> de este nivel</div><div class="muted">Acomódalo ahí. Ya quedó marcado "Está" y al guardar el nivel queda como acomodado con tu nombre.</div><button class="btn ok w" onclick="cerrarMod()">Listo</button>');return}}
+  var p=pasDe(c),mio=!p||p===PAS;
+  if(us.length){var u=us[0];
+    abrirMod('<b>'+esc(c)+'</b><div class="desc">'+descDe(c)+'</div>'+(mio?'<div class="aviso g">Es de este pasillo.</div>':'<div class="ajeno">Es del <b>'+nomPas(B,p)+'</b>: llévalo a su lugar y acomódalo ahí.</div>')+
+      '<div style="font-size:22px;margin:10px 0">Va en <b>'+esc(u)+'</b></div>'+(us.length>1?'<div class="muted">También tiene lugar en: '+us.slice(1).map(esc).join(', ')+'</div>':'')+
+      '<button class="btn ok w" onclick="yaAcomode(\''+jsq(c)+'\',\''+jsq(u)+'\')">Ya lo dejé ahí</button>'+
+      (mio?'<button class="btn w" onclick="cerrarMod();anotarAqui(\''+jsq(c)+'\')">No cupo allá: lo dejo en este nivel</button>':'')+
+      '<button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">No cupo: lo anoto en el piso</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>');return}
+  abrirMod('<b>'+esc(c)+' todavía no tiene lugar</b><div class="desc">'+descDe(c)+'</div><div class="muted" style="margin:6px 0">Si cabe en este nivel, ponlo aquí y elige la posición. Si no cabe, anótalo en el piso del pasillo: al terminar el pasillo se le da lugar.</div>'+
+    '<button class="btn ok w" onclick="cerrarMod();anotarAqui(\''+jsq(c)+'\')">Ponerlo en este nivel</button><button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">Anotarlo en el piso</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>')})}
+function yaAcomode(c,u){cerrarMod();encolar('marcar',{persona:persona,codigo:c,ubicacion:u,estado:'ACOMODADO',obs:'RECORRIDO: lo llevó a su lugar desde '+NIV},[]);vibrar(80);toast(c+' acomodado en '+u)}
 function guardarNivel(){var falta=ED.items.filter(function(i){return !i.estado||(i.estado==='OTRO'&&!i.otro)}).length;
   if(falta){toast('Revisa todas las posiciones (faltan '+falta+')');return}
   if(!ED.espacio){toast('Marca cuántas cajas más caben');return}
@@ -350,10 +369,10 @@ function guardarNivel(){var falta=ED.items.filter(function(i){return !i.estado||
   d.items.forEach(function(i){rows.push([f,persona,NIV,i.ubic,i.codigo,i.estado,i.otro||'','',''])});
   d.extras.forEach(function(e){rows.push([f,persona,NIV,e.ubic,'','EXTRA',e.codigo,'',''])});
   rows.push([f,persona,NIV,'','','NIVEL','',d.espacio,d.obs]);
-  d.items.forEach(function(i){if(i.estado==='OTRO'&&i.otro&&pasDe(i.otro)===PAS)ponerU2(i.otro,i.ubic)});d.extras.forEach(function(e){if(pasDe(e.codigo)===PAS)ponerU2(e.codigo,e.ubic)});indexar();
+  d.items.forEach(function(i){if(i.estado==='OTRO'&&i.otro&&pasDe(i.otro)===PAS)ponerU2(i.otro,i.ubic)});d.extras.forEach(function(e){if(!pasDe(e.codigo)||pasDe(e.codigo)===PAS)ponerU2(e.codigo,e.ubic)});indexar();
   store(CK+'_bor_'+NIV,null);encolar('guardarNivel',d,rows);vibrar(80);toast('Nivel '+NIV+' guardado');
   var sig=siguienteNivel(NIV);if(sig&&(!duenoRack(PAS,+sig.split('-')[2])||duenoRack(PAS,+sig.split('-')[2])===persona)&&!(LV[sig]&&LV[sig].espacio)){abrirNivel(sig)}else tab('r')}
-function ponerU2(c,u){var r=IDX[c];if(!r||String(r[4]).toUpperCase()===u)return;var l=ubics2(r);if(l.indexOf(u)<0){l.push(u);r[5]=l.join(' / ')}}
+function ponerU2(c,u){var r=IDX[c];if(!r)return;if(!String(r[4]||'').trim()){r[4]=u;return}if(String(r[4]).toUpperCase()===u)return;var l=ubics2(r);if(l.indexOf(u)<0){l.push(u);r[5]=l.join(' / ')}}
 function siguienteNivel(id){var x=id.split('-'),b=x[0],p=+x[1],r=+x[2],n=+x[3],racks=LAY[b][p]||{};
   if(n<racks[r])return nivelId(b,p,r,n+1);if(racks[r+1])return nivelId(b,p,r+1,1);return null}
 
