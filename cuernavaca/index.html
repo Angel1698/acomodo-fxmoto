@@ -519,7 +519,7 @@ function pintarPiso(){var cs=pisoActivo(B),h='<div class="muted" style="margin-t
   document.getElementById('piso').innerHTML=h}
 function filaPiso(c){var r=IDX[c],o=PISO[c],p=pasDe(c),t=tareaPend(c);
   return '<div class="item">'+fotoDe(c)+'<div class="grow"><div class="cod">'+esc(c)+'</div><div class="desc">'+descDe(c).slice(0,70)+'</div>'+
-    '<span class="pill">Su lugar: '+(r?esc(r[4]):'-')+'</span>'+(o.total?'<span class="pill">'+o.total+' pz · cupieron '+o.cup+'</span>'+(o.cup?'<span class="pill b">necesita '+Math.ceil(o.total/o.cup)+' posic.</span>':''):'<span class="pill r">Falta cantidad</span>')+(o.full?'<span class="pill g">Va a Full</span>':'')+(o.fuente==='nocupo'?'<span class="pill o">No cupo (acomodo)</span>':'')+
+    '<span class="pill">Su lugar: '+(r?esc(r[4]):'-')+'</span>'+(o.total?'<span class="pill">'+o.total+' pz · cupieron '+o.cup+'</span>'+(o.cup?'<span class="pill b">ocupa '+Math.ceil(o.total/o.cup)+' veces su posición</span>':''):'<span class="pill r">Falta cantidad</span>')+(o.full?'<span class="pill g">Va a Full</span>':'')+(o.fuente==='nocupo'?'<span class="pill o">No cupo (acomodo)</span>':'')+
     (t?'<div style="margin-top:6px">Va a: <span class="dest">'+esc(t[4].replace(/,/g,', '))+'</span></div>':'')+
     '<div class="seg">'+(o.fuente==='nocupo'||!o.total?'<button class="s-OTRO" onclick="nuevoPisoDe(\''+jsq(c)+'\')">Poner cantidad</button>':'')+
       (o.full?'<button onclick="marcarFull(\''+jsq(c)+'\',false)">Regresar a acomodo</button>':'')+
@@ -560,7 +560,7 @@ var FMOV=store('rec_fmov')||'mias';
 function pintarMovs(){var h='';
   if(LEGACY){document.getElementById('movs').innerHTML='<div class="card">La hoja todavía no tiene las funciones nuevas. Usa el botón Mover en la pestaña Piso.</div>';return}
   var L=ASG().filter(function(a){return +a[2]===PAS&&(String(a[5]).charAt(0)===B)});
-  h+='<div class="card"><b>'+nomPas(B,PAS)+' · movimientos</b><div class="muted">'+(cerrado(PAS)?'Lleva cada producto del piso a su nuevo lugar y escanea la etiqueta del nivel.':'Este pasillo sigue en revisión: los movimientos salen al terminarlo.')+'</div>'+
+  h+='<div class="card"><b>'+nomPas(B,PAS)+' · movimientos</b><div class="muted">'+(cerrado(PAS)?'Lleva cada producto del piso a su nuevo lugar y escanea la etiqueta de la posición.':'Este pasillo sigue en revisión: los movimientos salen al terminarlo.')+'</div>'+
      '<div class="chips"><button class="'+(FMOV==='mias'?'on':'')+'" onclick="FMOV=\'mias\';store(\'rec_fmov\',FMOV);pintar()">Míos</button><button class="'+(FMOV==='todas'?'on':'')+'" onclick="FMOV=\'todas\';store(\'rec_fmov\',FMOV);pintar()">Todos</button><button class="'+(FMOV==='hechos'?'on':'')+'" onclick="FMOV=\'hechos\';store(\'rec_fmov\',FMOV);pintar()">Hechos</button></div>';
   var pend=L.filter(function(a){return a[7]==='PENDIENTE'}),hech=L.filter(function(a){return a[7]==='HECHO'});
   h+='<div class="kpi"><div><b>'+pend.length+'</b>pendientes</div><div><b>'+hech.length+'</b>hechos</div><div><b>'+pend.filter(function(a){return a[6]===persona}).length+'</b>tuyos</div></div></div>';
@@ -569,7 +569,7 @@ function pintarMovs(){var h='';
   if(!V.length)h+='<p class="muted">Nada por aquí.</p>';
   V.forEach(function(a){var c=a[3],x=String(a[5]).split('-'),sec=x[1]==='PAS';
     h+='<div class="card"><div class="item" style="border:0">'+fotoDe(c)+'<div class="grow"><div class="cod">'+esc(c)+'</div><div class="desc">'+descDe(c).slice(0,70)+'</div><span class="pill">'+(a[9]?a[9]+' pz · ':'')+String(a[4]).split(',').length+' posic.</span>'+(a[6]?'<span class="pill b">'+esc(a[6])+'</span>':'')+'</div></div>'+
-      '<div style="text-align:center"><div class="muted">Del piso, llévalo a</div><div class="dest">'+esc(a[4].replace(/,/g,', '))+'</div><div class="muted">'+(sec?'Sección del '+nomPas(B,+x[2])+' (no hubo nivel con espacio)':'Rack '+(+x[2])+' · Nivel '+(+x[3])+' (1 = abajo)')+'</div>'+(a[10]?'<div class="muted">'+esc(a[10])+'</div>':'')+'</div>'+
+      '<div style="text-align:center"><div class="muted">Del piso, llévalo a</div><div class="dest">'+esc(a[4].replace(/,/g,', '))+'</div><div class="muted">'+(sec?'Sección del '+nomPas(B,+x[2])+' (no hubo posición libre donde quepa)':'Rack '+(+x[2])+' · Nivel '+(+x[3])+' (1 = abajo)')+'</div>'+(a[10]?'<div class="muted">'+esc(a[10])+'</div>':'')+'</div>'+
       (a[7]==='PENDIENTE'?'<button class="btn ok w" onclick="scanMov(\''+jsq(a[0])+'\')">Ya lo dejé: escanear la posición</button><button class="btn w" onclick="noCupoUI(\''+jsq(a[0])+'\')">No cupo aquí</button>':'<div class="muted" style="text-align:center">Hecho por '+esc(a[11])+' · '+esc(a[12])+'</div>')+'</div>'});
   document.getElementById('movs').innerHTML=h}
 function scanMov(id){if(!pedirNombre())return;var a=ASG().filter(function(x){return x[0]===id})[0],dest=String(a[4]).split(',');
@@ -613,9 +613,9 @@ function scanProducto(){var cb=PICK;escanear(function(t){var u=String(t).toUpper
 function escanear(cb,opt){SC.cb=cb;SC.opt=opt||{};document.getElementById('scanov').style.display='flex';document.getElementById('scanman').value='';document.getElementById('marco').className='marco';
   document.getElementById('scanmanrow').style.display=SC.opt.titulo?'none':'flex';document.getElementById('scandan').style.display=SC.opt.danada?'block':'none';
   document.getElementById('scanmsg').textContent=SC.opt.titulo?SC.opt.titulo+'. No se puede escribir a mano.':'Apunta a la etiqueta. Si no la lee, escríbela abajo.';
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){document.getElementById('scanmsg').textContent='Este teléfono no deja usar la cámara aquí: escribe la etiqueta.';return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){document.getElementById('scanmsg').textContent=SC.opt.titulo?'Este teléfono no deja usar la cámara. Si la etiqueta está dañada usa el botón de abajo.':'Este teléfono no deja usar la cámara aquí: escribe la etiqueta.';return}
   navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false}).then(function(st){SC.st=st;var v=document.getElementById('scanvid');v.srcObject=st;v.play();
-    if('BarcodeDetector' in window){try{SC.bd=new BarcodeDetector()}catch(e){SC.bd=null}}loop()}).catch(function(){document.getElementById('scanmsg').textContent='No se pudo abrir la cámara: escribe la etiqueta.'})}
+    if('BarcodeDetector' in window){try{SC.bd=new BarcodeDetector()}catch(e){SC.bd=null}}loop()}).catch(function(){document.getElementById('scanmsg').textContent=SC.opt.titulo?'No se pudo abrir la cámara: revisa el permiso de cámara del navegador.':'No se pudo abrir la cámara: escribe la etiqueta.'})}
 function loop(){if(!SC.st)return;var v=document.getElementById('scanvid');if(!v.videoWidth){SC.t=setTimeout(loop,200);return}
   var c=SC.cv||(SC.cv=document.createElement('canvas')),w=Math.min(1280,v.videoWidth),h=Math.round(v.videoHeight*w/v.videoWidth);c.width=w;c.height=h;var g=c.getContext('2d',{willReadFrequently:true});g.drawImage(v,0,0,w,h);
   var p=SC.bd?SC.bd.detect(c).then(function(r){return r.map(function(x){return x.rawValue})}):(window.ZXingWASM?ZXingWASM.readBarcodes(g.getImageData(0,0,w,h),{tryHarder:true,maxNumberOfSymbols:3}).then(function(r){return r.map(function(x){return x.text})}):Promise.resolve([]));
