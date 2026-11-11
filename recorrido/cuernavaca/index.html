@@ -282,14 +282,14 @@ var QUITAR_REC={};
 function enRecorrido(c){var out=[];Object.keys(LV).forEach(function(niv){var l=LV[niv];if(!l.espacio)return;
   l.items.forEach(function(i){if((i.codigo===c&&i.estado==='OK')||(i.estado==='OTRO'&&i.otro===c))out.push({niv:niv,ubic:i.ubic})});
   l.extras.forEach(function(e){if(e.codigo===c)out.push({niv:niv,ubic:e.ubic})})});return out}
-function quitarDeRecorrido(c){var f=new Date().toISOString().replace('T',' ').slice(0,19),nivs={};enRecorrido(c).forEach(function(x){nivs[x.niv]=1});
+function quitarDeRecorrido(c){var f=new Date().toISOString().replace('T',' ').slice(0,19),nivs={},r0=IDX[c],u2=[];enRecorrido(c).forEach(function(x){nivs[x.niv]=1;if(!r0||String(r0[4]).toUpperCase()!==String(x.ubic).toUpperCase())u2.push(x.ubic)});
   Object.keys(nivs).forEach(function(niv){var l=LV[niv];
     var items=l.items.map(function(i){var e=i.estado,o=i.otro||'';if((i.codigo===c&&e==='OK')||(e==='OTRO'&&o===c)){e='VACIA';o=''}return {ubic:i.ubic,codigo:i.codigo,estado:e,otro:o}});
     var extras=l.extras.filter(function(e){return e.codigo!==c}).map(function(e){return {codigo:e.codigo,ubic:e.ubic}});
     var d={persona:persona,nivel:niv,espacio:l.espacio,obs:l.obs||'',items:items,extras:extras},rows=[[f,persona,niv,'','','QUITAR','','','']];
     items.forEach(function(i){rows.push([f,persona,niv,i.ubic,i.codigo,i.estado,i.otro||'','',''])});extras.forEach(function(e){rows.push([f,persona,niv,e.ubic,'','EXTRA',e.codigo,'',''])});
     rows.push([f,persona,niv,'','','NIVEL','',d.espacio,d.obs]);encolar('guardarNivel',d,rows)});
-  var r=IDX[c];if(r){r[5]=ubics2(r).filter(function(u){return !nivs[nivelDe(u)]}).join(' / ')}indexar()}
+  var r=IDX[c];if(r){r[5]=ubics2(r).filter(function(u){return !nivs[nivelDe(u)]}).join(' / ')}indexar();return u2}
 function quitarPisoSin(c){var f=new Date().toISOString().replace('T',' ').slice(0,19);encolar('marcarPiso',{persona:persona,codigo:c,quitar:true},[[f,persona,'','',c,'QUITAR_PISO','','','']])}
 
 function agregarExtra(){elegirProducto('¿Qué producto encontraste en este nivel?',NIV,function(c){
@@ -353,9 +353,9 @@ function guardarPiso(c){var on=document.querySelector('#pp button.on'),p=on?on.g
   if(tot<1){toast('Escribe cuántas piezas tienes en total');return}
   if(cup>tot){toast('Las que cupieron no pueden ser más que el total');return}
   var bu=cup>0?Math.ceil(tot/cup):1,obs='Total '+tot+' pz; cupieron '+cup+' en su posición';
-  if(QUITAR_REC[c]){quitarDeRecorrido(c);delete QUITAR_REC[c]}
+  var qu2=[];if(QUITAR_REC[c]){qu2=quitarDeRecorrido(c)||[];delete QUITAR_REC[c]}
   var f=new Date().toISOString().replace('T',' ').slice(0,19);
-  encolar('marcarPiso',{persona:persona,codigo:c,pasillo:p,bultos:bu,full:full,total:tot,cupieron:cup,obs:obs},[[f,persona,'',p,c,full?'PISO_FULL':'PISO','',String(bu),obs]]);cerrarMod();toast('Anotado en el piso')}
+  encolar('marcarPiso',{persona:persona,codigo:c,pasillo:p,bultos:bu,full:full,total:tot,cupieron:cup,obs:obs,quitarU2:qu2},[[f,persona,'',p,c,full?'PISO_FULL':'PISO','',String(bu),obs]]);cerrarMod();toast('Anotado en el piso')}
 function quitarPiso(c){if(!pedirNombre())return;if(!confirm('¿Ya no está en el piso '+c+'?'))return;var f=new Date().toISOString().replace('T',' ').slice(0,19);
   encolar('marcarPiso',{persona:persona,codigo:c,quitar:true},[[f,persona,'','',c,'QUITAR_PISO','','','']])}
 function marcarFull(c,full){var o=PISO[c]||{},f=new Date().toISOString().replace('T',' ').slice(0,19);if(!pedirNombre())return;
