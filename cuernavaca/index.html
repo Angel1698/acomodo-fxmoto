@@ -187,8 +187,8 @@ function procesar(){LV={};PISO={};APART={};SINESC=[];
     if(est==='SINESCANEO'){SINESC.push(x);return}
     if(est==='APARTADO'){APART[niv]={persona:x[1],fecha:x[0]};return}
     if(est==='QUITAR'){LV[niv]={items:[],extras:[],fecha:x[0],persona:x[1]};return}
-    if(est==='OK'||est==='VACIA'||est==='OTRO'){(LV[niv]=LV[niv]||{items:[],extras:[]}).items.push({ubic:x[3],codigo:x[4],estado:est,otro:x[6],obs:x[8]});return}
-    if(est==='EXTRA'){(LV[niv]=LV[niv]||{items:[],extras:[]}).extras.push({codigo:x[6],ubic:x[3],obs:x[8]});return}
+    if(est==='OK'||est==='VACIA'||est==='OTRO'){(LV[niv]=LV[niv]||{items:[],extras:[]}).items.push({ubic:x[3],codigo:x[4],estado:est,otro:x[6],obs:x[8],auto:x[7]==='EXT'});return}
+    if(est==='EXTRA'){(LV[niv]=LV[niv]||{items:[],extras:[]}).extras.push({codigo:x[6],ubic:x[3],obs:x[8],auto:x[7]==='EXT'});return}
     if(est==='NIVEL'){var l=LV[niv]=LV[niv]||{items:[],extras:[]};l.espacio=x[7];l.obs=x[8];l.fecha=x[0];l.persona=x[1];if(APART[niv]&&APART[niv].fecha<=x[0])delete APART[niv];return}
     if(est==='PISO'||est==='PISO_FULL'){var c=x[4];var o=PISO[c]||{};o.pasillo=x[3]||o.pasillo;o.bultos=+x[7]||1;o.fecha=x[0];o.persona=x[1];o.full=est==='PISO_FULL';o.obs=x[8];
       var mt=/Total (\d+) pz; cupieron (\d+)/.exec(String(x[8]||''));o.total=mt?+mt[1]:0;o.cup=mt?+mt[2]:0;o.fuente='recorrido';o.quitado=false;PISO[c]=o;return}
@@ -335,15 +335,26 @@ function pintarNivel(){var id=NIV,x=id.split('-'),h='';guardarBorrador();
 function todoOK(){var n=0;ED.items.forEach(function(it){if(!it.estado){it.estado='OK';n++}});toast(n+' posiciones marcadas "Está"');pintar()}
 function scanPos(){escanear(function(t){var u=parseU(t);if(!u||nivelDe(t)!==NIV){toast('Esa etiqueta no es de este nivel',3000);return false}var e=document.getElementById('pos-'+u.pos);if(e)e.scrollIntoView({behavior:'smooth',block:'center'});return true})}
 function marcaPos(i,e){var it=ED.items[i];
-  if(e==='OTRO'){elegirProducto('¿Qué producto está en la posición '+letraDe(it.ubic)+'?',NIV,function(c){if(it.ext&&it.ext.length)quitarExt(i);it.estado='OTRO';it.otro=c;it.auto=false;pintar()});return}
+  if(e==='OTRO'){elegirProducto('¿Qué producto está en la posición '+letraDe(it.ubic)+'?',NIV,function(c){var us=lugaresDe(c);
+    if(us.length&&us.indexOf(String(it.ubic).toUpperCase())<0){if(it.ext&&it.ext.length)quitarExt(i);it.estado='VACIA';it.otro='';it.auto=false;pintar();llevaloASuLugar(c,'No se puede quedar en la posición '+letraDe(it.ubic)+'. Esa posición queda como Vacía.');return}
+    if(it.ext&&it.ext.length)quitarExt(i);it.estado='OTRO';it.otro=c;it.auto=false;pintar();
+    if(IDX[c])toast(c+' no tenía lugar: la posición '+letraDe(it.ubic)+' será suya'+(it.codigo?' y '+it.codigo+' se queda sin lugar si no aparece':''),5000)});return}
   if(e==='OK'&&PISO[it.codigo]&&!PISO[it.codigo].quitado&&!PISO[it.codigo].full){if(!confirm(it.codigo+' está anotado en el PISO.\nTodo va junto: o todo en su posición o todo en el piso.\n¿Ya regresaste TODO a su posición? (se quita del piso)'))return;quitarPisoSin(it.codigo)}
   if(it.ext&&it.ext.length&&e!=='OK')quitarExt(i);it.estado=e;it.otro='';it.auto=false;pintar()}
-function agregarExtra(){elegirProducto('¿Qué producto encontraste en este nivel?',NIV,anotarAqui)}
-function anotarAqui(c){(function(){
-  var L=letrasNivel();var sig=L[L.length-1];
-  var h='<b>¿En qué posición está '+esc(c)+'?</b>'+ajeno(c)+'<div class="muted">Si está junto a otro producto, elige esa letra. Si está en un lugar sin letra, elige la nueva ('+sig+').</div><div class="chips">';
-  L.forEach(function(l){h+='<button onclick="ED.extras.push({codigo:\''+jsq(c)+'\',ubic:\''+NIV+'-'+l+'\'});cerrarMod();pintar()">'+l+(l===sig?' (nueva)':'')+'</button>'});
-  h+='</div><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)})()}
+function agregarExtra(){elegirProducto('¿Qué producto encontraste en este nivel?',NIV,function(c){var us=lugaresDe(c);
+  if(us.length){var aq=us.filter(function(u){return nivelDe(u)===NIV});if(aq.length){toast(c+' ya tiene lugar en este nivel: posición '+letraDe(aq[0]),4000);return}llevaloASuLugar(c,'Ya tiene lugar asignado: no se puede quedar en este nivel.');return}
+  anotarAqui(c)})}
+function llevaloASuLugar(c,motivo){var us=lugaresDe(c),p=pasDe(c);
+  abrirMod('<b>'+esc(c)+'</b><div class="desc">'+descDe(c)+'</div><div class="aviso r" style="margin-top:6px">'+esc(motivo)+'</div>'+(p&&p!==PAS?'<div class="ajeno">Es del <b>'+nomPas(B,p)+'</b>.</div>':'')+
+    '<div style="font-size:22px;margin:10px 0">Llévalo a <b>'+esc(us[0])+'</b></div><button class="btn ok w" onclick="cerrarMod();yaAcomode(\''+jsq(c)+'\')">Ya lo dejé: escanear la posición</button><button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">No cupo: lo anoto en el piso</button><button class="btn w" onclick="cerrarMod()">Cerrar</button>')}
+// Solo para productos SIN lugar: posiciones Vacía de este nivel (su código se queda sin lugar si no aparece) o la letra nueva al final
+function anotarAqui(c){if(lugaresDe(c).length){llevaloASuLugar(c,'Ya tiene lugar asignado: no se puede quedar en este nivel.');return}
+  var L=letrasNivel(),sig=L[L.length-1],usadas={};ED.extras.forEach(function(e){usadas[String(e.ubic).toUpperCase()]=1});
+  var vac=ED.items.filter(function(it){return it.estado==='VACIA'&&!usadas[String(it.ubic).toUpperCase()]});
+  var h='<b>¿Dónde lo pones? '+esc(c)+'</b><div class="muted">Solo en una posición <b>Vacía</b> o en la letra nueva al final del nivel. Si usas una vacía, el código de esa posición se queda sin lugar (si aparece después, se le da otro).</div><div class="chips">';
+  vac.forEach(function(it){var l=letraDe(it.ubic);h+='<button onclick="ED.extras.push({codigo:\''+jsq(c)+'\',ubic:\''+jsq(it.ubic)+'\',reemplaza:\''+jsq(it.codigo)+'\'});cerrarMod();pintar()">'+l+' (vacía)</button>'});
+  h+='<button onclick="ED.extras.push({codigo:\''+jsq(c)+'\',ubic:\''+NIV+'-'+sig+'\'});cerrarMod();pintar()">'+sig+' (nueva)</button>';
+  h+='</div>'+(vac.length?'':'<div class="muted">No hay posiciones vacías en este nivel.</div>')+'<button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">No cabe: anotarlo en el piso</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)}
 /* ===== Candados de escaneo ===== */
 // escanear con candado: no se puede escribir la etiqueta a mano; solo "etiqueta dañada", que queda en la lista de la encargada
 function escanearEstricto(titulo,cb,danada){escanear(cb,{titulo:titulo,danada:danada})}
@@ -366,7 +377,6 @@ function tengoProducto(){PICK_ESC=false;elegirProducto('¿Qué producto traes en
       '<div style="font-size:22px;margin:10px 0">Va en <b>'+esc(u)+'</b></div>'+(us.length>1?'<div class="muted">También tiene lugar en: '+us.slice(1).map(esc).join(', ')+'</div>':'')+
       '<div class="muted">Cuando lo dejes, escanea la etiqueta de esa posición. Si escaneas otra, no se registra.</div>'+
       '<button class="btn ok w" onclick="cerrarMod();yaAcomode(\''+jsq(c)+'\')">Ya lo dejé: escanear la posición</button>'+
-      (mio?'<button class="btn w" onclick="cerrarMod();anotarAqui(\''+jsq(c)+'\')">No cupo allá: lo dejo en este nivel</button>':'')+
       '<button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">No cupo: lo anoto en el piso</button>'+dan+'<button class="btn w" onclick="cerrarMod()">Cancelar</button>');return}
   abrirMod('<b>'+esc(c)+' todavía no tiene lugar</b><div class="desc">'+descDe(c)+'</div><div class="muted" style="margin:6px 0">Si cabe en este nivel, ponlo aquí y elige la posición. Si no cabe, anótalo en el piso del pasillo: al terminar el pasillo se le da lugar.</div>'+
     '<button class="btn ok w" onclick="cerrarMod();anotarAqui(\''+jsq(c)+'\')">Ponerlo en este nivel</button><button class="btn w" onclick="cerrarMod();nuevoPisoDe(\''+jsq(c)+'\')">Anotarlo en el piso</button>'+dan+'<button class="btn w" onclick="cerrarMod()">Cancelar</button>')})}
@@ -410,12 +420,14 @@ function guardarNivel(){var falta=ED.items.filter(function(i){return !i.estado||
   if(falta){toast('Revisa todas las posiciones (faltan '+falta+')');return}
   escanearEstricto('Escanea cualquier etiqueta de este nivel para guardarlo',function(t){if(nivelDe(t)!==NIV){equivocada('esa etiqueta es de '+(nivelDe(t)||t)+', no de '+NIV);return false}guardarNivel2(String(t).toUpperCase(),false);return true},function(){guardarNivel2('',true)})}
 function guardarNivel2(escaneo,sinEsc){
-  ED.espacio='REV';var d={persona:persona,nivel:NIV,espacio:'REV',escaneo:escaneo,sinEscaneo:sinEsc,obs:ED.obs,items:ED.items.map(function(i){return {ubic:i.ubic,codigo:i.codigo,estado:i.estado,otro:i.otro}}),extras:ED.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic}})};
+  ED.espacio='REV';var d={persona:persona,nivel:NIV,espacio:'REV',escaneo:escaneo,sinEscaneo:sinEsc,obs:ED.obs,items:ED.items.map(function(i){return {ubic:i.ubic,codigo:i.codigo,estado:i.estado,otro:i.otro,auto:!!i.auto}}),extras:ED.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic,auto:!!e.auto,reemplaza:e.reemplaza||''}})};
   var f=ahora(),rows=[[f,persona,NIV,'','','QUITAR','','','']];
-  d.items.forEach(function(i){rows.push([f,persona,NIV,i.ubic,i.codigo,i.estado,i.otro||'','',''])});
-  d.extras.forEach(function(e){rows.push([f,persona,NIV,e.ubic,'','EXTRA',e.codigo,'',''])});
+  d.items.forEach(function(i){rows.push([f,persona,NIV,i.ubic,i.codigo,i.estado,i.otro||'',i.auto?'EXT':'',''])});
+  d.extras.forEach(function(e){rows.push([f,persona,NIV,e.ubic,'','EXTRA',e.codigo,e.auto?'EXT':'',''])});
   rows.push([f,persona,NIV,'','','NIVEL',sinEsc?'SINESC':escaneo,d.espacio,d.obs]);if(sinEsc)rows.push([f,persona,NIV,'','','SINESCANEO','','','guardó el nivel sin escanear su etiqueta']);
-  d.items.forEach(function(i){if(i.estado==='OTRO'&&i.otro&&pasDe(i.otro)===PAS)ponerU2(i.otro,i.ubic)});d.extras.forEach(function(e){if(!pasDe(e.codigo)||pasDe(e.codigo)===PAS)ponerU2(e.codigo,e.ubic)});indexar();
+  var sinLugar=function(c,u,x){var r=IDX[c];if(!r||String(r[4]||'').trim())return;var rx=x&&IDX[x];if(rx&&String(rx[4]).toUpperCase()===String(u).toUpperCase())rx[4]='';r[4]=u};
+  d.items.forEach(function(i){if(i.estado!=='OTRO'||!i.otro)return;if(i.auto){if(pasDe(i.otro)===PAS)ponerU2(i.otro,i.ubic)}else sinLugar(i.otro,i.ubic,i.codigo)});
+  d.extras.forEach(function(e){if(e.auto){if(pasDe(e.codigo)===PAS)ponerU2(e.codigo,e.ubic)}else sinLugar(e.codigo,e.ubic,e.reemplaza)});indexar();
   store(CK+'_bor_'+NIV,null);encolar('guardarNivel',d,rows);vibrar(80);toast('Nivel '+NIV+' guardado');
   var sig=siguienteNivel(NIV);if(sig&&(!duenoRack(PAS,+sig.split('-')[2])||duenoRack(PAS,+sig.split('-')[2])===persona)&&!(LV[sig]&&LV[sig].espacio)){abrirNivel(sig)}else tab('r')}
 function ponerU2(c,u){var r=IDX[c];if(!r)return;if(!String(r[4]||'').trim()){r[4]=u;return}if(String(r[4]).toUpperCase()===u)return;var l=ubics2(r);if(l.indexOf(u)<0){l.push(u);r[5]=l.join(' / ')}}
@@ -543,16 +555,24 @@ function terminarUI(){if(!pedirNombre(terminarUI))return;var R=revisionPasillo(P
     fila('Productos del piso sin cantidad',R.sinCant.length,R.sinCant.join(', '))+
     fila('Vacías sin aclarar (estaban acomodados y no aparecen)',R.vac.length,R.vac.slice(0,80).map(function(i){return esc(i.codigo)+' en '+esc(i.ubic)}).join(', '))+
     fila('Productos de otro pasillo que siguen aquí',R.ajenos.length,R.ajenos.map(function(e){return esc(e.codigo)+' en '+esc(e.ubic)}).join(', '))+
-    '<div class="aviso" style="margin-top:8px">Productos en el piso de este pasillo que van a recibir lugar: <b>'+R.piso.filter(function(c){return PISO[c].total}).length+'</b></div>'+
+    frenoTarima(PAS)+'<div class="aviso" style="margin-top:8px">Productos en el piso de este pasillo que van a recibir lugar: <b>'+R.piso.filter(function(c){return PISO[c].total}).length+'</b></div>'+
     (R.vac.length||R.ajenos.length?'<div class="muted">Las vacías y lo de otro pasillo no detienen el cierre, pero conviene resolverlas antes: busca el producto o llévalo a su pasillo.</div>':'')+
     (bloq?'<label style="display:block;margin-top:8px"><input type="checkbox" id="tforzar"> Terminar de todos modos (lo pendiente queda sin lugar)</label>':'')+
     '<input type="password" id="tpin" placeholder="PIN de encargada (si se pide)" style="margin-top:8px">'+
     '<button class="btn pri w" onclick="terminar('+bloq+')">Terminar pasillo y dar lugares</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';
   abrirMod(h)}
+// Posiciones cuyo código no apareció en todo el pasillo y que se le pueden dar a otro producto. Si el producto está en la tarima, se marca y se respeta.
+function frenoTarima(p){var halla={};Object.keys(LV).forEach(function(n){LV[n].items.forEach(function(i){if(i.estado==='OK')halla[i.codigo]=1;if(i.estado==='OTRO'&&i.otro)halla[i.otro]=1});LV[n].extras.forEach(function(e){halla[e.codigo]=1})});
+  Object.keys(PISO).forEach(function(c){if(!PISO[c].quitado)halla[c]=1});
+  var L=[];nivelesDe(B,p).forEach(function(n){var l=LV[n];if(!l)return;l.items.forEach(function(i){if(halla[i.codigo])return;var r=IDX[i.codigo];if(!r||String(r[4]).toUpperCase()!==String(i.ubic).toUpperCase())return;if(i.estado==='VACIA'||(i.estado==='OTRO'&&i.auto))L.push(i)})});
+  if(!L.length)return '';
+  return '<div class="card" style="margin-top:8px"><b>Posiciones que se le pueden dar a otro producto: '+L.length+'</b><div class="muted">Su código no apareció en todo el pasillo. Si sabes que ese producto está en la tarima o en otro lado de la bodega, márcalo y su posición se respeta.</div><div style="max-height:220px;overflow:auto">'+
+    L.map(function(i){return '<label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="resv" value="'+esc(i.codigo)+'"><span>'+esc(i.codigo)+' · '+esc(i.ubic)+'<br><small>'+esc(descDe(i.codigo).slice(0,60))+(i.estado==='OTRO'?' · ahí se extendió '+esc(i.otro):'')+'</small></span></label>'}).join('')+'</div><div class="muted">Marcado = está en la tarima, no le quites su posición.</div></div>'}
 function terminar(bloq){if(bloq&&!document.getElementById('tforzar').checked){toast('Hay pendientes: resuélvelos o marca "Terminar de todos modos"',4000);return}
   if(COLA.length){toast('Espera a que se manden los registros guardados en el teléfono',4000);return}
   var pin=document.getElementById('tpin').value;
-  api('cerrarPasillo',[{persona:persona,pasillo:PAS,pin:pin}],1).then(function(r){EST=r;guardarCache();cerrarMod();toast(nomPas(B,PAS)+' terminado: ya están los movimientos',4000);tab('m')})
+  var reservar=[].slice.call(document.querySelectorAll('.resv:checked')).map(function(x){return x.value});
+  api('cerrarPasillo',[{persona:persona,pasillo:PAS,pin:pin,reservar:reservar}],1).then(function(r){EST=r;guardarCache();cerrarMod();toast(nomPas(B,PAS)+' terminado: ya están los movimientos',4000);tab('m')})
   .catch(function(e){toast(e.message==='SIN_RED'?'Necesitas internet para terminar el pasillo':e.message,5000)})}
 
 /* ===== Movimientos: lo del piso a su nuevo lugar ===== */
