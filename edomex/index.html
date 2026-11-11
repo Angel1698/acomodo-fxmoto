@@ -290,12 +290,12 @@ function croquis(u){var x=parseU(u);if(!x)return '';var h='<div class="croq">';
   return h+'</div>';}
 function tarjeta(r){
   var cod=r[0],m=MK[cod.toUpperCase()]||{},foto=r[8];
-  var tags=(m.estado==='ACOMODADO'?'<span class="tag t-ok">Acomodado por '+esc(m.persona)+'</span>'+(m.escaneo?'<span class="tag t-sc">Posición escaneada</span>':'<span class="tag t-no">Sin escanear</span>'):'')+(m.nocupo?'<span class="tag t-no">No cupo</span>':'')+(m.danado?'<span class="tag t-da">Dañado</span>':'');
+  var tags=(m.estado==='ACOMODADO'?'<span class="tag t-ok">Acomodado por '+esc(m.persona)+(m.fecha?' · '+esc(m.fecha):'')+'</span>'+(m.escaneo?'<span class="tag t-sc">Posición escaneada</span>':'<span class="tag t-no">Sin escanear</span>'):'')+(m.nocupo?'<span class="tag t-no">No cupo</span>':'')+(m.danado?'<span class="tag t-da">Dañado</span>':'');
   var u2=r[5]?'<div class="sub">Si no cabe, sigue en: <b>'+esc(r[5])+'</b></div>':'';
   return '<div class="card"><div class="row">'+(foto?'<img class="foto" loading="lazy" src="'+esc(foto)+'">':'<div class="foto">Sin foto</div>')+
     '<div style="min-width:0"><div class="cod">'+esc(cod)+'</div><div class="desc">'+esc(r[1])+'</div>'+(r[2]?'<div class="desc" style="color:#8a93a3">'+esc(r[2])+'</div>':'')+tags+'</div></div>'+
     '<div class="ubic"><div class="big">'+esc(r[4])+'</div><div class="sub">'+ubicTexto(r[4])+'</div>'+u2+croquis(r[4])+'<button class="btn-cq" onclick="irCroquis(\''+esc(r[4])+'\')">Ver en croquis y rack</button></div>'+
-    '<div class="btns">'+(m.estado==='ACOMODADO'?'<button class="b-ok done" onclick="acc(\''+esc(cod)+'\',\'ok\')">Acomodado ✓ (quitar)</button>':'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Escanear posición y acomodar</button><button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'man\')">Acomodar sin escanear</button>')+
+    '<div class="btns">'+(m.estado==='ACOMODADO'?'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Registrar otra vez (encontré más)</button><button class="b-ok done" onclick="acc(\''+esc(cod)+'\',\'ok\')">Acomodado ✓ (quitar)</button>':'<button class="b-ok" style="flex-basis:100%" onclick="escanear(\'confirmar\',\''+esc(cod)+'\')">Escanear posición y acomodar</button><button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'man\')">Acomodar sin escanear</button>')+
     '<button class="b-no'+(m.nocupo?' done':'')+'" onclick="acc(\''+esc(cod)+'\',\'no\')">No cupo</button>'+
     '<button class="b-da'+(m.danado?' done':'')+'" onclick="acc(\''+esc(cod)+'\',\'da\')">Dañado + foto</button>'+
     '<button class="b-ob" onclick="acc(\''+esc(cod)+'\',\'ob\')">Observación</button></div>'+
@@ -340,6 +340,8 @@ function enviar(cod,estado,obs,foto){
   var r=IDX[cod.toUpperCase()];toast('Guardando...');
   google.script.run.withSuccessHandler(function(m){MK=m;refrescar();toast('Guardado')}).withFailureHandler(function(e){toast('No se guardó: '+e.message)})
     .marcar({persona:persona,codigo:cod,ubicacion:r?r[4]:'',estado:estado,obs:obs||'',fotoBase64:foto||''});}
+function historialReg(cod,m0){if(!persona)return;var f=new Date(),pad=function(n){return (n<10?'0':'')+n},fs=f.getFullYear()+'-'+pad(f.getMonth()+1)+'-'+pad(f.getDate())+' '+pad(f.getHours())+':'+pad(f.getMinutes());
+  google.script.run.withSuccessHandler(function(m){MK=m;refrescar()}).withFailureHandler(function(){}).marcar({persona:persona,codigo:cod,ubicacion:(IDX[cod.toUpperCase()]||[])[4]||'',estado:'OBSERVACION',obs:'Registrado otra vez por '+persona+' el '+fs+' (encontró más en bodega). Antes lo registró '+(m0.persona||'sin nombre')+(m0.fecha?' el '+m0.fecha:'')+'.',fotoBase64:''})}
 function acc(cod,t){var m=MK[cod.toUpperCase()]||{};
   if(t==='ok'){if(confirm('¿Quitar la marca de acomodado de '+cod+'?'))enviar(cod,'QUITAR ACOMODADO')}
   if(t==='man'){if(confirm('¿Marcar '+cod+' como acomodado sin escanear la posición?\nÚsalo solo si la etiqueta de la posición está dañada.'))enviar(cod,'ACOMODADO','Acomodado sin escanear la posición')}
@@ -536,7 +538,7 @@ function codigoProbable(t){var tk=tokens(String(t).toUpperCase().trim()).filter(
 function resultado(txt){var t=String(txt).trim(),u=t.toUpperCase();
   if(SCAN.modo==='confirmar'){var r=IDX[SCAN.cod.toUpperCase()];if(!r)return;
     if(!esPos(u)){vibrar([200,100,200]);alert((buscarCodigo(t)?'Escaneaste la etiqueta de la PIEZA.':'Eso no es una etiqueta de posición.')+'\n\nEscanea la etiqueta de la REPISA (la de la posición) donde pusiste '+SCAN.cod+'.');return}
-    if(u===r[4]||u===r[5]){vibrar(150);enviar(SCAN.cod,'ACOMODADO','ESCANEO:'+u);toast('Correcto: '+SCAN.cod+' en '+u);return}
+    if(u===r[4]||u===r[5]){vibrar(150);var mk0=MK[SCAN.cod.toUpperCase()]||{};if(mk0.estado==='ACOMODADO')historialReg(SCAN.cod,mk0);enviar(SCAN.cod,'ACOMODADO','ESCANEO:'+u);toast('Correcto: '+SCAN.cod+' en '+u);return}
     vibrar([300,100,300,100,300]);alert('POSICIÓN EQUIVOCADA\n\nEscaneaste: '+u+'\n'+SCAN.cod+' va en: '+r[4]+(r[5]?' (o '+r[5]+')':'')+'\n\nNo se marcó como acomodado.');return}
   document.getElementById('posres').innerHTML='';
   if(esPos(u)){var L=P.filter(function(r){return r[4]===u||r[5]===u});
