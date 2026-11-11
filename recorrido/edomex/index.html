@@ -436,10 +436,10 @@ function nuevoPisoDe(c){var r=IDX[c],pc=pasDe(c)||PAS,o=PISO[c],ya=o&&!o.quitado
     (ya?'<div class="aviso">Ya hay <b>'+o.total+' pz</b> anotadas por '+esc(o.persona||'')+' ('+o.cup+' cupieron en su lugar). Lo que escribas abajo <b>se suma</b>.</div>':'')+
     '<div class="muted" style="margin-top:8px">'+(ya?'¿Cuántas piezas MÁS encontraste?':'¿Cuántas piezas tienes en total de este producto? (todo, también lo que sacaste del rack)')+'</div><input type="number" id="pt" min="1" inputmode="numeric">'+
     '<div class="muted" style="margin-top:8px">¿Cuántas piezas cupieron en su posición?'+(ya?' (déjalo vacío si no lo volviste a medir)':'')+'</div><input type="number" id="pc" min="0" inputmode="numeric">'+
-    '<label style="display:block;margin-top:10px"><input type="checkbox" id="pf"> Se va en un envío a Full (no acomodar)</label>'+
+
     '<button class="btn pri w" onclick="guardarPiso(\''+jsq(c)+'\')">Guardar</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';
   abrirMod(h)}
-function guardarPiso(c){var pc=pasDe(c)||PAS,o=PISO[c],ya=o&&!o.quitado&&!o.full&&o.total,nuevo=Math.floor(+document.getElementById('pt').value||0),cupTxt=document.getElementById('pc').value,full=document.getElementById('pf').checked;
+function guardarPiso(c){var pc=pasDe(c)||PAS,o=PISO[c],ya=o&&!o.quitado&&!o.full&&o.total,nuevo=Math.floor(+document.getElementById('pt').value||0),cupTxt=document.getElementById('pc').value,full=false;
   if(nuevo<1){toast('Escribe cuántas piezas');return}
   var tot=ya?o.total+nuevo:nuevo,cup=cupTxt===''?(ya?o.cup:-1):Math.floor(+cupTxt||0);
   if(cup<0){toast('Escribe cuántas cupieron en su posición (0 si no cupo ninguna)');return}
@@ -469,7 +469,7 @@ function filaPiso(c){var r=IDX[c],o=PISO[c],p=pasDe(c),t=tareaPend(c);
     '<span class="pill">Su lugar: '+(r?esc(r[4]):'-')+'</span>'+(o.total?'<span class="pill">'+o.total+' pz · cupieron '+o.cup+'</span>'+(o.cup?'<span class="pill b">necesita '+Math.ceil(o.total/o.cup)+' posic.</span>':''):'<span class="pill r">Falta cantidad</span>')+(o.full?'<span class="pill g">Va a Full</span>':'')+(o.fuente==='nocupo'?'<span class="pill o">No cupo (acomodo)</span>':'')+
     (t?'<div style="margin-top:6px">Va a: <span class="dest">'+esc(t[4].replace(/,/g,', '))+'</span></div>':'')+
     '<div class="seg">'+(o.fuente==='nocupo'||!o.total?'<button class="s-OTRO" onclick="nuevoPisoDe(\''+jsq(c)+'\')">Poner cantidad</button>':'')+
-      (o.full?'<button onclick="marcarFull(\''+jsq(c)+'\',false)">No va a Full</button>':'<button onclick="marcarFull(\''+jsq(c)+'\',true)">Va a Full</button>')+
+      (o.full?'<button onclick="marcarFull(\''+jsq(c)+'\',false)">Regresar a acomodo</button>':'')+
       (!LEGACY&&cerrado(p)&&!t&&!o.full&&o.total?'<button class="s-OK" onclick="darLugar(\''+jsq(c)+'\')">Darle lugar</button>':'')+
       (LEGACY&&!o.full?'<button class="s-OK" onclick="moverLegacy(\''+jsq(c)+'\')">Mover</button>':'')+
       '<button onclick="quitarPiso(\''+jsq(c)+'\')">Ya no está</button></div></div></div>'}
