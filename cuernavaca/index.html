@@ -103,7 +103,7 @@ details summary{cursor:pointer;color:#1a3f8a;font-size:13px;margin-top:4px}
 </head>
 <body>
 <header>
-  <div class="top"><b>Acomodo y recorrido · CUERNAVACA</b><span><button class="chip" id="who" onclick="elegirNombre()">Sin nombre</button></span></div>
+  <div class="top"><b>Acomodo y recorrido · CUERNAVACA</b><span><button class="chip" id="encbtn" onclick="encUI()">Soy encargada</button><button class="chip" id="who" onclick="elegirNombre()">Sin nombre</button></span></div>
   <div class="tabs"><button id="tb-r" onclick="tab('r')">Recorrido</button><button id="tb-p" onclick="tab('p')">Piso</button><button id="tb-m" onclick="tab('m')">Movimientos</button><button id="tb-a" onclick="tab('a')">Avance</button><button onclick="location.href='buscar.html'">Buscar producto</button></div>
 </header>
 <main>
@@ -248,7 +248,7 @@ function elegirNombre(){var L=nombresConocidos(),h='<b>¿Quién eres?</b><div cl
   abrirMod(h)}
 function ponerNombre(n){n=String(n||'').trim().replace(/\s+/g,' ');if(n.length<3){toast('Escribe tu nombre');return}
   var L=nombresConocidos(),igual=L.filter(function(x){return x.toLowerCase()===n.toLowerCase()})[0];if(igual)n=igual;
-  persona=n;store('wms_persona',persona);document.getElementById('who').textContent=persona;cerrarMod();pintar();var cb=TRAS_NOMBRE;TRAS_NOMBRE=null;cb&&cb()}
+  persona=n;store('wms_persona',persona);pintarWho();cerrarMod();pintar();var cb=TRAS_NOMBRE;TRAS_NOMBRE=null;cb&&cb()}
 
 /* ===== Pasillos y racks ===== */
 function nivelesDe(b,p){var out=[],racks=(LAY[b]||{})[p]||{};Object.keys(racks).forEach(function(r){for(var n=1;n<=racks[r];n++)out.push(nivelId(b,p,+r,n))});return out}
@@ -265,7 +265,7 @@ function pintarRacks(){var h='';
   else if(cerrado(PAS)){var pend=ASG().filter(function(a){return +a[2]===PAS&&a[7]==='PENDIENTE'}).length;
     c+='<div class="aviso g">Este pasillo ya se terminó. '+(pend?'Faltan <b>'+pend+'</b> movimientos para acomodar lo del piso.':'Ya no hay movimientos pendientes.')+'</div><button class="btn blue w" onclick="tab(\'m\')">Ver movimientos</button>'}
   else{c+='<div class="muted" style="margin-top:6px">'+(mis.length?'Tus racks: <b>'+mis.join(', ')+'</b>. Revisa solo esos.':(Object.keys(pe.racks||{}).length?'No tienes racks asignados en este pasillo: pídeselos a la encargada.':'La encargada todavía no reparte los racks de este pasillo.'))+'</div>'+
-    '<div class="row2"><button class="btn w" onclick="asignarRacksUI()">Repartir racks</button><button class="btn pri w" onclick="terminarUI()">Terminar pasillo</button></div>'}
+    (esEnc()?'<div class="row2"><button class="btn w" onclick="asignarRacksUI()">Repartir racks</button><button class="btn pri w" onclick="terminarUI()">Terminar pasillo</button></div>':'<div class="muted" style="margin-top:6px">La encargada reparte los racks y termina el pasillo.</div>')}
   document.getElementById('pascard').innerHTML=c+'</div>';
   var racks=(LAY[B]||{})[PAS]||{},w='<div class="pl">'+nomPas(B,PAS)+' · toca un nivel para revisarlo (1 = abajo)</div><div class="racks">';
   Object.keys(racks).sort(function(a,b){return a-b}).forEach(function(r){var due=duenoRack(PAS,r);w+='<div class="rack'+(due&&due===persona?' mio':'')+'"><div class="t">'+'Rack '+r+(due?'<i>'+esc(due.split(' ')[0])+'</i>':'')+'</div>';
@@ -274,13 +274,23 @@ function pintarRacks(){var h='';
     w+='</div>'});
   document.getElementById('rackwrap').innerHTML=w+'</div>'}
 
+/* ===== Encargada: nombre + PIN de la pestaña ENCARGADAS ===== */
+var ENC=null;try{ENC=JSON.parse(localStorage.getItem('rec_enc')||'null')}catch(e){ENC=null}
+function esEnc(){return !!(ENC&&persona&&ENC.nombre.toUpperCase()===String(persona).toUpperCase())}
+function encUI(){if(!pedirNombre(encUI))return;if(esEnc()){abrirMod('<b>Modo encargada: '+esc(ENC.nombre)+'</b><div class="muted">Puedes repartir racks y terminar pasillos en este teléfono.</div><button class="btn w" onclick="salirEnc()">Salir de modo encargada</button><button class="btn w" onclick="cerrarMod()">Cerrar</button>');return}
+  abrirMod('<b>Entrar como encargada</b><div class="muted">Solo la encargada reparte racks y termina pasillos. Nombre: <b>'+esc(persona)+'</b></div><input type="password" id="encpin" inputmode="numeric" placeholder="PIN de encargada" style="margin-top:8px"><button class="btn pri w" onclick="entrarEnc()">Entrar</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>')}
+function entrarEnc(){var pin=document.getElementById('encpin').value.trim();if(!pin){toast('Escribe el PIN');return}
+  api('verificarEncargada',[{persona:persona,pin:pin}],1).then(function(r){ENC={nombre:r.nombre||persona,pin:pin};try{localStorage.setItem('rec_enc',JSON.stringify(ENC))}catch(e){}cerrarMod();pintarWho();toast('Modo encargada activado');pintar()})
+  .catch(function(e){toast(e.message==='SIN_RED'?'Necesitas internet':e.message,5000)})}
+function salirEnc(){ENC=null;try{localStorage.removeItem('rec_enc')}catch(e){}cerrarMod();pintarWho();pintar()}
+function pintarWho(){var w=document.getElementById('who');if(w)w.textContent=(persona||'Sin nombre')+(esEnc()?' · Encargada':'');var b=document.getElementById('encbtn');if(b)b.textContent=esEnc()?'Encargada ✓':'Soy encargada'}
 /* Repartir racks del pasillo (encargada) */
-function asignarRacksUI(){if(!pedirNombre(asignarRacksUI))return;var racks=Object.keys((LAY[B]||{})[PAS]||{}).sort(function(a,b){return a-b}),pe=pasEst(PAS),L=nombresConocidos(),h='<b>Repartir racks · '+nomPas(B,PAS)+'</b><div class="muted">Escribe o elige quién revisa cada rack. Reparte por posiciones, no por número de racks: los racks con muchas posiciones valen más.</div><datalist id="dln">'+L.map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist>';
+function asignarRacksUI(){if(!pedirNombre(asignarRacksUI))return;if(!esEnc()){toast('Solo la encargada reparte los racks');return}var racks=Object.keys((LAY[B]||{})[PAS]||{}).sort(function(a,b){return a-b}),pe=pasEst(PAS),L=nombresConocidos(),h='<b>Repartir racks · '+nomPas(B,PAS)+'</b><div class="muted">Escribe o elige quién revisa cada rack. Reparte por posiciones, no por número de racks: los racks con muchas posiciones valen más.</div><datalist id="dln">'+L.map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist>';
   racks.forEach(function(r){var np=0;for(var n=1;n<=LAY[B][PAS][r];n++)np+=(POS[nivelId(B,PAS,+r,n)]||[]).length;h+='<div class="item"><div style="width:90px"><b>'+'Rack '+r+'</b><div class="muted">'+np+' posic.</div></div><input type="text" list="dln" data-r="'+r+'" value="'+esc(duenoRack(PAS,r))+'" placeholder="Nombre"></div>'});
-  h+=(PIN_REQ?'<input type="password" id="rpin" placeholder="PIN de encargada" style="margin-top:8px">':'')+'<button class="btn pri w" onclick="guardarRacks()">Guardar reparto</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)}
+  h+='<button class="btn pri w" onclick="guardarRacks()">Guardar reparto</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';abrirMod(h)}
 var PIN_REQ=false;
 function guardarRacks(){var m={};[].forEach.call(document.querySelectorAll('#modbox input[data-r]'),function(i){var n=i.value.trim();if(n)(m[n]=m[n]||[]).push(+i.getAttribute('data-r'))});
-  var pin=(document.getElementById('rpin')||{}).value||'';
+  var pin=ENC?ENC.pin:'';
   api('asignarRacks',[{persona:persona,pasillo:PAS,racks:m,pin:pin}],1).then(function(r){EST=r;guardarCache();cerrarMod();toast('Racks repartidos');pintar()})
   .catch(function(e){if(/PIN/.test(e.message)){PIN_REQ=true;asignarRacksUI()}toast(e.message==='SIN_RED'?'Necesitas internet para repartir racks':e.message,4000)})}
 
@@ -547,7 +557,7 @@ function revisionPasillo(p){var ns=nivelesDe(B,p),sin=ns.filter(function(n){retu
   var vac=[];ns.forEach(function(n){var l=LV[n];if(!l)return;l.items.forEach(function(i){var m=MK[String(i.codigo).toUpperCase()]||{};if(i.estado==='VACIA'&&m.estado==='ACOMODADO'&&!halla[i.codigo]&&!(PISO[i.codigo]&&!PISO[i.codigo].quitado))vac.push(i)})});
   var ajenos=[];ns.forEach(function(n){var l=LV[n];if(!l)return;l.extras.forEach(function(e){if(pasDe(e.codigo)&&pasDe(e.codigo)!==p)ajenos.push(e)});l.items.forEach(function(i){if(i.estado==='OTRO'&&pasDe(i.otro)&&pasDe(i.otro)!==p)ajenos.push({codigo:i.otro,ubic:i.ubic})})});
   return {sin:sin,ap:ap,piso:piso,sinCant:sinCant,vac:vac,ajenos:ajenos,total:ns.length}}
-function terminarUI(){if(!pedirNombre(terminarUI))return;var R=revisionPasillo(PAS),bloq=R.sin.length+R.ap.length+R.sinCant.length;
+function terminarUI(){if(!pedirNombre(terminarUI))return;if(!esEnc()){toast('Solo la encargada termina el pasillo');return}var R=revisionPasillo(PAS),bloq=R.sin.length+R.ap.length+R.sinCant.length;
   var fila=function(t,n,lista,ok){return '<div class="chk"><span>'+t+'</span><b class="'+(n?'no':'ok')+'">'+(n?n:'✓')+'</b></div>'+(n&&lista?'<details><summary>Ver cuáles</summary><div class="muted">'+lista+'</div></details>':'')};
   var h='<b>Terminar '+nomPas(B,PAS)+'</b><div class="muted">Al terminar, la hoja le da lugar dentro de este pasillo a todo lo que está en su piso y le reparte los movimientos a cada quien.</div>'+
     fila('Niveles sin revisar ('+(R.total-R.sin.length)+' de '+R.total+' listos)',R.sin.length,R.sin.join(', '))+
@@ -558,7 +568,7 @@ function terminarUI(){if(!pedirNombre(terminarUI))return;var R=revisionPasillo(P
     frenoTarima(PAS)+'<div class="aviso" style="margin-top:8px">Productos en el piso de este pasillo que van a recibir lugar: <b>'+R.piso.filter(function(c){return PISO[c].total}).length+'</b></div>'+
     (R.vac.length||R.ajenos.length?'<div class="muted">Las vacías y lo de otro pasillo no detienen el cierre, pero conviene resolverlas antes: busca el producto o llévalo a su pasillo.</div>':'')+
     (bloq?'<label style="display:block;margin-top:8px"><input type="checkbox" id="tforzar"> Terminar de todos modos (lo pendiente queda sin lugar)</label>':'')+
-    '<input type="password" id="tpin" placeholder="PIN de encargada (si se pide)" style="margin-top:8px">'+
+
     '<button class="btn pri w" onclick="terminar('+bloq+')">Terminar pasillo y dar lugares</button><button class="btn w" onclick="cerrarMod()">Cancelar</button>';
   abrirMod(h)}
 // Posiciones cuyo código no apareció en todo el pasillo y que se le pueden dar a otro producto. Si el producto está en la tarima, se marca y se respeta.
@@ -570,7 +580,7 @@ function frenoTarima(p){var halla={};Object.keys(LV).forEach(function(n){LV[n].i
     L.map(function(i){return '<label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="resv" value="'+esc(i.codigo)+'"><span>'+esc(i.codigo)+' · '+esc(i.ubic)+'<br><small>'+esc(descDe(i.codigo).slice(0,60))+(i.estado==='OTRO'?' · ahí se extendió '+esc(i.otro):'')+'</small></span></label>'}).join('')+'</div><div class="muted">Marcado = está en la tarima, no le quites su posición.</div></div>'}
 function terminar(bloq){if(bloq&&!document.getElementById('tforzar').checked){toast('Hay pendientes: resuélvelos o marca "Terminar de todos modos"',4000);return}
   if(COLA.length){toast('Espera a que se manden los registros guardados en el teléfono',4000);return}
-  var pin=document.getElementById('tpin').value;
+  var pin=ENC?ENC.pin:'';
   var reservar=[].slice.call(document.querySelectorAll('.resv:checked')).map(function(x){return x.value});
   api('cerrarPasillo',[{persona:persona,pasillo:PAS,pin:pin,reservar:reservar}],1).then(function(r){EST=r;guardarCache();cerrarMod();toast(nomPas(B,PAS)+' terminado: ya están los movimientos',4000);tab('m')})
   .catch(function(e){toast(e.message==='SIN_RED'?'Necesitas internet para terminar el pasillo':e.message,5000)})}
@@ -649,7 +659,7 @@ function cerrarScan(){clearTimeout(SC.t);if(SC.st)SC.st.getTracks().forEach(func
 
 function verTutorial(){abrirMod('<b>Cómo usar el recorrido de racks</b><video src="tutorial.mp4" controls playsinline autoplay style="width:100%;max-height:75vh;margin-top:8px;border-radius:10px;background:#000"></video><button class="btn w" onclick="var v=document.querySelector(\'#modbox video\');v&&v.pause();cerrarMod()">Cerrar</button>')}
 /* ===== Inicio ===== */
-persona=store('wms_persona')||'';document.getElementById('who').textContent=persona||'Sin nombre';
+persona=store('wms_persona')||'';pintarWho();
 setB('C');tab('r');cargar();enviarCola();
 </script>
 </body>
