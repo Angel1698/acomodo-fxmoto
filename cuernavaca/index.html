@@ -56,6 +56,10 @@ input[type=search],input[type=text],input[type=number],input[type=password],text
 .seg button.s-VACIA{background:#6b7280;border-color:#6b7280;color:#fff}
 .seg button.s-OTRO{background:#ef8a00;border-color:#ef8a00;color:#fff}
 .seg button.s-EXT{background:#1a3f8a;border-color:#1a3f8a;color:#fff}
+.cantrow{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#1d2330}
+.cantrow input{width:90px;font-size:20px;text-align:center;padding:6px;border:2px solid #c5cbd6;border-radius:8px}
+.cantrow input.vacio{border-color:#e57373;background:#fff5f5}
+.cantrow small{font-weight:normal;color:#667085}
 /* vista compacta */
 .compacta .pos{padding:6px 0;gap:6px;align-items:center}
 .compacta .foto{width:40px;height:40px;flex-basis:40px}
@@ -307,9 +311,16 @@ function abrirNivel(id,forzar){if(!pedirNombre(function(){abrirNivel(id)}))retur
     APART[id]={persona:persona,fecha:ahora()};seguir()})
   .catch(function(e){if(e.message==='SIN_RED'){toast('Sin internet: no se pudo apartar el nivel',3000);seguir()}else toast(e.message,4000)})}
 function tomarForzado(id){api('tomarNivel',[{persona:persona,nivel:id,forzar:true}],0).then(function(){NIV=id;prepararED(id);tab('n')}).catch(function(e){toast(e.message,4000)})}
+function cantDe(o){var m=/CANT:(\d+)/.exec(String(o||''));return m?m[1]:''}
+function pideCant(it){return !it.auto&&(it.estado==='OK'||(it.estado==='OTRO'&&!!it.otro))}
+function sinCant(){var n=0;ED.items.forEach(function(it){if(pideCant(it)&&String(it.cant==null?'':it.cant)==='')n++});ED.extras.forEach(function(e){if(!e.auto&&String(e.cant==null?'':e.cant)==='')n++});return n}
+function cantHTML(v,fn,cod,ext){return '<div class="cantrow">Piezas'+(cod?' de '+esc(cod):'')+' <input type="number" inputmode="numeric" min="0" step="1" placeholder="?" class="'+(String(v==null?'':v)===''?'vacio':'')+'" value="'+esc(v==null?'':v)+'" oninput="'+fn+'(this)">'+(ext?'<small>cuenta también las de las posiciones de al lado</small>':'')+'</div>'}
+function setCant(i,el){var v=String(el.value).replace(/[^0-9]/g,'');ED.items[i].cant=v;el.className=v===''?'vacio':'';guardarBorrador();actBtnGuardar()}
+function setCantE(i,el){var v=String(el.value).replace(/[^0-9]/g,'');ED.extras[i].cant=v;el.className=v===''?'vacio':'';guardarBorrador();actBtnGuardar()}
+function actBtnGuardar(){var b=document.getElementById('btnGuardarNivel');if(!b)return;var falta=ED.items.filter(function(i){return !i.estado||(i.estado==='OTRO'&&!i.otro)}).length,sc=sinCant();b.textContent=falta?'Faltan '+falta+' posiciones por revisar':(sc?'Falta la cantidad de '+sc+' producto(s)':'Guardar nivel (escanea una etiqueta del nivel)')}
 function prepararED(id){var prev=LV[id],pos=POS[id]||[];
-  ED={items:pos.map(function(p){var v=prev&&prev.items.filter(function(i){return i.ubic===p.u&&i.codigo===p.cod})[0];return {ubic:p.u,codigo:p.cod,seg:p.seg,estado:v?v.estado:'',otro:v?v.otro:''}}),
-      extras:prev?prev.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic}}):[],espacio:prev?prev.espacio||'':'',obs:prev?prev.obs||'':''};
+  ED={items:pos.map(function(p){var v=prev&&prev.items.filter(function(i){return i.ubic===p.u&&i.codigo===p.cod})[0];return {ubic:p.u,codigo:p.cod,seg:p.seg,estado:v?v.estado:'',otro:v?v.otro:'',cant:v?cantDe(v.obs):''}}),
+      extras:prev?prev.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic,cant:cantDe(e.obs)}}):[],espacio:prev?prev.espacio||'':'',obs:prev?prev.obs||'':''};
   // borrador guardado en el teléfono (por si se salió o se apagó)
   var d=null;try{d=JSON.parse(store(CK+'_bor_'+id)||'null')}catch(e){}
   if(d&&d.persona===persona&&(!prev||!prev.fecha||d.fecha>prev.fecha)){ED=d.ed;toast('Seguimos donde te quedaste')}
@@ -334,13 +345,14 @@ function pintarNivel(){var id=NIV,x=id.split('-'),h='';guardarBorrador();
     (it.estado==='OTRO'&&!it.auto?'<div class="otro">'+(it.otro?'Ahí está: <b>'+esc(it.otro)+'</b> · '+descDe(it.otro).slice(0,50)+' <a href="#" onclick="marcaPos('+i+',\'OTRO\');return false">cambiar</a>':'<a href="#" onclick="marcaPos('+i+',\'OTRO\');return false">Elegir cuál producto está</a>')+'</div>'+(it.otro?ajeno(it.otro):''):'')+
     (it.ext&&it.ext.length?'<div class="ext">Se extendió a: '+it.ext.join(', ')+' <a href="#" onclick="quitarExt('+i+');pintar();return false">quitar</a></div>':'')+
     (it.auto?'<div class="ext">Aquí se extendió <b>'+esc(it.otro)+'</b> desde la posición de al lado</div>':'')+
+    (pideCant(it)?cantHTML(it.cant,'setCant.bind(null,'+i+')',it.estado==='OTRO'?it.otro:'',it.ext&&it.ext.length):'')+
     '</div></div>'});
   h+='</div>';
   h+='<div class="card"><b>2. ¿Hay algo más en este nivel?</b><div class="muted">Productos que no son de aquí. Si es de otro pasillo, llévalo a su lugar.</div>';
-  ED.extras.forEach(function(e,i){if(e.auto)return;h+='<div class="item">'+fotoDe(e.codigo)+'<div class="grow"><div class="cod">'+esc(e.codigo)+'</div><div class="desc">'+descDe(e.codigo)+'</div><span class="pill o">en posición '+esc(letraDe(e.ubic))+'</span>'+ajeno(e.codigo)+'</div><button class="btn" onclick="ED.extras.splice('+i+',1);pintar()">Quitar</button></div>'});
+  ED.extras.forEach(function(e,i){if(e.auto)return;h+='<div class="item">'+fotoDe(e.codigo)+'<div class="grow"><div class="cod">'+esc(e.codigo)+'</div><div class="desc">'+descDe(e.codigo)+'</div><span class="pill o">en posición '+esc(letraDe(e.ubic))+'</span>'+ajeno(e.codigo)+cantHTML(e.cant,'setCantE.bind(null,'+i+')','',false)+'</div><button class="btn" onclick="ED.extras.splice('+i+',1);pintar()">Quitar</button></div>'});
   h+='<button class="btn w" onclick="agregarExtra()">+ Agregar producto que encontré aquí</button></div>';
   h+='<div class="card"><b>3. Observaciones</b><div class="muted">El espacio libre son las posiciones que marcaste Vacía: no hay que medir nada.</div><textarea id="nobs" rows="2" style="margin-top:8px" placeholder="Observaciones (opcional)" oninput="ED.obs=this.value;guardarBorrador()">'+esc(ED.obs)+'</textarea></div>';
-  h+='<button class="btn ok w" onclick="guardarNivel()">'+(falta?'Faltan '+falta+' posiciones por revisar':'Guardar nivel (escanea una etiqueta del nivel)')+'</button><button class="btn w" onclick="scanPos()">Escanear una posición para ir a ella</button><div style="height:30px"></div>';
+  var sc=sinCant();h+='<button class="btn ok w" id="btnGuardarNivel" onclick="guardarNivel()">'+(falta?'Faltan '+falta+' posiciones por revisar':(sc?'Falta la cantidad de '+sc+' producto(s)':'Guardar nivel (escanea una etiqueta del nivel)'))+'</button><button class="btn w" onclick="scanPos()">Escanear una posición para ir a ella</button><div style="height:30px"></div>';
   document.getElementById('v-n').innerHTML=h}
 function todoOK(){var n=0;ED.items.forEach(function(it){if(!it.estado){it.estado='OK';n++}});toast(n+' posiciones marcadas "Está"');pintar()}
 function scanPos(){escanear(function(t){var u=parseU(t);if(!u||nivelDe(t)!==NIV){toast('Esa etiqueta no es de este nivel',3000);return false}var e=document.getElementById('pos-'+u.pos);if(e)e.scrollIntoView({behavior:'smooth',block:'center'});return true})}
@@ -428,12 +440,13 @@ function registrarNueva(c){var t=document.getElementById('rgt').value.trim(),m=d
   encolar('registrarPieza',{persona:persona,codigo:c,titulo:t,marca:m,foto1:FOTOS.f1,foto2:FOTOS.f2,nota:'recorrido nivel '+NIV},[]);FOTOS={};cerrarMod();toast('Pieza nueva registrada: apártala en la zona de piezas sin ubicación',4500)}
 function guardarNivel(){var falta=ED.items.filter(function(i){return !i.estado||(i.estado==='OTRO'&&!i.otro)}).length;
   if(falta){toast('Revisa todas las posiciones (faltan '+falta+')');return}
+  var sc=sinCant();if(sc){toast('Escribe cuántas piezas hay de cada producto (faltan '+sc+'). Si no hay ninguna, márcala Vacía.',4500);return}
   escanearEstricto('Escanea cualquier etiqueta de este nivel para guardarlo',function(t){if(nivelDe(t)!==NIV){equivocada('esa etiqueta es de '+(nivelDe(t)||t)+', no de '+NIV);return false}guardarNivel2(String(t).toUpperCase(),false);return true},function(){guardarNivel2('',true)})}
 function guardarNivel2(escaneo,sinEsc){
-  ED.espacio='REV';var d={persona:persona,nivel:NIV,espacio:'REV',escaneo:escaneo,sinEscaneo:sinEsc,obs:ED.obs,items:ED.items.map(function(i){return {ubic:i.ubic,codigo:i.codigo,estado:i.estado,otro:i.otro,auto:!!i.auto}}),extras:ED.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic,auto:!!e.auto,reemplaza:e.reemplaza||''}})};
+  ED.espacio='REV';var d={persona:persona,nivel:NIV,espacio:'REV',escaneo:escaneo,sinEscaneo:sinEsc,obs:ED.obs,items:ED.items.map(function(i){return {ubic:i.ubic,codigo:i.codigo,estado:i.estado,otro:i.otro,auto:!!i.auto,obs:pideCant(i)&&String(i.cant==null?'':i.cant)!==''?'CANT:'+(+i.cant):''}}),extras:ED.extras.map(function(e){return {codigo:e.codigo,ubic:e.ubic,auto:!!e.auto,reemplaza:e.reemplaza||'',obs:!e.auto&&String(e.cant==null?'':e.cant)!==''?'CANT:'+(+e.cant):''}})};
   var f=ahora(),rows=[[f,persona,NIV,'','','QUITAR','','','']];
-  d.items.forEach(function(i){rows.push([f,persona,NIV,i.ubic,i.codigo,i.estado,i.otro||'',i.auto?'EXT':'',''])});
-  d.extras.forEach(function(e){rows.push([f,persona,NIV,e.ubic,'','EXTRA',e.codigo,e.auto?'EXT':'',''])});
+  d.items.forEach(function(i){rows.push([f,persona,NIV,i.ubic,i.codigo,i.estado,i.otro||'',i.auto?'EXT':'',i.obs||''])});
+  d.extras.forEach(function(e){rows.push([f,persona,NIV,e.ubic,'','EXTRA',e.codigo,e.auto?'EXT':'',e.obs||''])});
   rows.push([f,persona,NIV,'','','NIVEL',sinEsc?'SINESC':escaneo,d.espacio,d.obs]);if(sinEsc)rows.push([f,persona,NIV,'','','SINESCANEO','','','guardó el nivel sin escanear su etiqueta']);
   var sinLugar=function(c,u,x){var r=IDX[c];if(!r||String(r[4]||'').trim())return;var rx=x&&IDX[x];if(rx&&String(rx[4]).toUpperCase()===String(u).toUpperCase())rx[4]='';r[4]=u};
   d.items.forEach(function(i){if(i.estado!=='OTRO'||!i.otro)return;if(i.auto){if(pasDe(i.otro)===PAS)ponerU2(i.otro,i.ubic)}else sinLugar(i.otro,i.ubic,i.codigo)});
@@ -524,10 +537,10 @@ function guardarPiso(c){var pc=pasDe(c)||PAS,o=PISO[c],ya=o&&!o.quitado&&!o.full
   encolar('marcarPiso',{persona:persona,codigo:c,pasillo:String(pc),bultos:bu,full:full,total:tot,cupieron:cup,obs:obs,quitarU2:qu2,pruebaNivel:pn,pruebaCaben:pn?pcab:0},[[ahora(),persona,pn,String(pc),c,full?'PISO_FULL':'PISO',pn?String(pcab):'',String(bu),obs]]);cerrarMod();toast('Anotado en el piso: '+tot+' pz')}
 function quitarDeRecorrido(c){var f=ahora(),nivs={},r0=IDX[c],u2=[];enRecorrido(c).forEach(function(x){nivs[x.niv]=1;if(!r0||String(r0[4]).toUpperCase()!==String(x.ubic).toUpperCase())u2.push(x.ubic)});
   Object.keys(nivs).forEach(function(niv){var l=LV[niv];
-    var items=l.items.map(function(i){var e=i.estado,o=i.otro||'';if((i.codigo===c&&e==='OK')||(e==='OTRO'&&o===c)){e='VACIA';o=''}return {ubic:i.ubic,codigo:i.codigo,estado:e,otro:o}});
-    var extras=l.extras.filter(function(e){return e.codigo!==c}).map(function(e){return {codigo:e.codigo,ubic:e.ubic}});
+    var items=l.items.map(function(i){var e=i.estado,o=i.otro||'',ob=i.obs||'';if((i.codigo===c&&e==='OK')||(e==='OTRO'&&o===c)){e='VACIA';o='';ob=''}return {ubic:i.ubic,codigo:i.codigo,estado:e,otro:o,obs:ob}});
+    var extras=l.extras.filter(function(e){return e.codigo!==c}).map(function(e){return {codigo:e.codigo,ubic:e.ubic,obs:e.obs||''}});
     var d={persona:persona,nivel:niv,espacio:l.espacio,obs:l.obs||'',items:items,extras:extras},rows=[[f,persona,niv,'','','QUITAR','','','']];
-    items.forEach(function(i){rows.push([f,persona,niv,i.ubic,i.codigo,i.estado,i.otro||'','',''])});extras.forEach(function(e){rows.push([f,persona,niv,e.ubic,'','EXTRA',e.codigo,'',''])});
+    items.forEach(function(i){rows.push([f,persona,niv,i.ubic,i.codigo,i.estado,i.otro||'','',i.obs||''])});extras.forEach(function(e){rows.push([f,persona,niv,e.ubic,'','EXTRA',e.codigo,'',e.obs||''])});
     rows.push([f,persona,niv,'','','NIVEL','',d.espacio,d.obs]);encolar('guardarNivel',d,rows)});
   var r=IDX[c];if(r){r[5]=ubics2(r).filter(function(u){return !nivs[nivelDe(u)]}).join(' / ')}indexar();return u2}
 function quitarPisoSin(c){encolar('marcarPiso',{persona:persona,codigo:c,quitar:true},[[ahora(),persona,'','',c,'QUITAR_PISO','','','']])}
